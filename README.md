@@ -1,33 +1,52 @@
-# 3008 Survival — The Infinite Store
+# 3008 Survival v2.0.0
 
-An original, browser-based, third-person online multiplayer survival game inspired by SCP-3008.
-All code and art are written from scratch (primitive/procedural 3D with Three.js). No Roblox assets or code.
+An original multiplayer survival game you play in the browser. You are trapped in an endless, procedurally generated furniture store. By day the faceless employees ignore you. When the store closes they hunt in groups, so scavenge, craft and build a fort before night falls. Everything in the game (models, textures, sounds) is original and made in code.
+
+**Play:** https://three008-survival.onrender.com
 
 ## Features
-- Infinite, procedurally generated furniture store (24 m chunks: aisles, bedrooms, living rooms, dining, displays, showrooms, pillars, signs), deterministic from a shared server seed; chunk streaming + one instanced draw call per chunk.
-- Third-person camera (pointer lock, mouse orbit), WASD, sprint (uses energy), jump, climb onto low furniture.
-- Server-synced day/night cycle (5 min day / 3 min night); lights dim at night, store announcements on screen.
-- Server-simulated employee NPCs: wander in the day, chase and attack at night (red eyes). Hitting one in daytime makes it aggressive.
-- Health, hunger, energy. Food (meatballs, hot dog, juice, cake), medkits, and melee weapons (bat, pipe, crowbar) spawn in the world and respawn after 4 min.
-- Pick up any furniture (E), carry it, rotate (R) and place it (LMB/Q) to build walls/bases — shared with all players.
-- 6-slot hotbar inventory, death (lose inventory) & respawn, name entry, name labels, chat, online list.
-- Server-authoritative: time, NPCs, damage, item spawns/pickups, furniture, stats. Client-side movement with server sanity checks.
+- **World:** infinite seeded store in 24 m chunks with themed zones (Bedrooms, Kitchens, Showroom, Restaurant, Bathrooms, Offices, Warehouse, Clock Atrium…) and dozens of furniture types.
+- **Visuals:** ACES tone mapping, fog, flickering ceiling lights, a dimmed night with red emergency lighting, a flashlight (F), shadows, vignette and grain. Three quality presets.
+- **Employees:** pathfinding (A*) with group flanking. Types are Staff, Runner and Giant. They smash barricades when stuck and get 20 s of grace after closing time.
+- **Survival:** health, hunger, energy and stamina. Sleep, cooking and crafting, tool durability, opt-in PvP (`/pvp`).
+- **Building:** grab or place any loose furniture, rotate it, craft barricades, lock items (L). Builds persist across restarts.
+- **Social:** XP and levels, leaderboard (Tab), parties, emotes, chat, kill feed, nameplates.
+- **Audio:** procedural WebAudio sound effects and ambience.
+- **UI:** minimap and compass, main menu, settings, pause, help, touch controls (`?touch`).
 
 ## Controls
-WASD move · Shift sprint · Space jump · Mouse look (click to lock) · Shift+wheel zoom · E pick up / grab furniture ·
-LMB attack / use food / place furniture · R rotate carried furniture · Q place · 1-6 / wheel select slot · G discard · F flashlight · Enter chat
+| Key | Action |
+|---|---|
+| WASD / Shift / Space | Move / sprint / jump |
+| E | Interact / pick up / grab |
+| Q or LMB | Place (R rotates) |
+| X or RMB | Use item |
+| G | Drop |
+| Z | Sleep |
+| L | Lock |
+| C | Craft |
+| F | Flashlight |
+| Tab | Leaderboard |
+| Enter | Chat |
+| Esc | Pause |
+| H / J / K / U / Y | Wave / dance / sit / point / cheer |
 
 ## Run locally
-```bash
+```
 npm install
-npm start          # http://localhost:3000  (PORT env var respected; optional SEED env var)
-npm test           # headless 2-client multiplayer test
+npm start      # http://localhost:3000
+npm test       # multiplayer integration test
 ```
 
-## Deploy to Render.com
-1. Push this folder to a GitHub repo (`git init && git add . && git commit -m init && git remote add origin <url> && git push -u origin main`).
-2. On https://dashboard.render.com click **New → Web Service**, connect the repo.
-3. Runtime **Node**, Build command `npm install`, Start command `npm start` (or use **New → Blueprint** and it picks up `render.yaml`).
-4. Deploy and open `https://<your-service>.onrender.com`. Share the URL; everyone joins the same world.
+## Environment
+- `PORT`
+- `SEED`: world seed.
+- `DATA_DIR`: where `world.json` is saved. Saves run every 30 s and on SIGTERM.
+- `START_TIME`
+- `ALLOW_DEBUG=1`: enables `/debug/time?t=`, `/time day|night` and the client param `?debugTime=day|night|<sec>`.
+- Client params: `?autoplay&name=X`.
 
-Note: on Render's free plan the service sleeps when idle (first load takes ~30-60 s) and the world (placed furniture) resets on restart.
+## Deploy (Render)
+`render.yaml` sets up a free Node web service. Health check: `/health`, which returns the version, players and time.
+
+**Note:** free instances have an ephemeral disk, so placed builds reset on redeploy or restart unless you attach a persistent disk and point `DATA_DIR` at it.

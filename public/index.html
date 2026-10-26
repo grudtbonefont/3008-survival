@@ -1,34 +1,68 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>3008 Survival — The Infinite Store</title><link rel="stylesheet" href="style.css">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>3008 Survival — The Infinite Store</title>
+<link rel="stylesheet" href="/style.css">
 <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js" } }</script>
-</head><body>
-<div id="start"><div class="panel">
-  <h1>3008 <span>SURVIVAL</span></h1><p class="sub">An infinite furniture store. The staff don't like customers after closing.</p>
-  <input id="name" maxlength="16" placeholder="Enter your name" autofocus>
-  <button id="play">ENTER THE STORE</button>
-  <div class="help"><b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>Mouse</b> look (click to lock)<br>
-  <b>E</b> pick up item / furniture · <b>LMB</b> attack / eat / place · <b>R</b> rotate carried furniture · <b>Q</b> drop carried furniture in front<br>
-  <b>1-6 / wheel</b> hotbar · <b>G</b> discard item · <b>F</b> flashlight · <b>Enter</b> chat</div>
-</div></div>
+</head>
+<body>
+<div id="game"></div>
+<div id="vignette"></div><canvas id="grain"></canvas><div id="dmgflash"></div>
 <div id="hud" class="hidden">
-  <div id="clock"></div>
-  <div id="bars">
-    <div class="bar"><label>HEALTH</label><div><i id="hp" style="background:#e04848"></i></div></div>
-    <div class="bar"><label>HUNGER</label><div><i id="hunger" style="background:#e0a040"></i></div></div>
-    <div class="bar"><label>ENERGY</label><div><i id="energy" style="background:#48a0e0"></i></div></div>
+  <div id="topbar"><div id="clock"><b id="dayLabel">Day 1</b><span id="timeLabel">09:00</span><div id="timeBar"><i></i></div></div></div>
+  <div id="stats">
+    <div class="bar hp"><span>❤</span><i></i><em></em></div>
+    <div class="bar food"><span>🍖</span><i></i><em></em></div>
+    <div class="bar energy"><span>⚡</span><i></i><em></em></div>
+    <div class="bar stam"><span>🏃</span><i></i><em></em></div>
+    <div id="level"><b id="lvNum">Lv 1</b><div id="xpBar"><i></i></div><small id="daysLabel">0 nights survived · 0 KOs</small></div>
   </div>
-  <div id="hotbar"></div>
-  <div id="carry"></div>
-  <div id="prompt"></div>
+  <div id="mapWrap"><canvas id="minimap" width="180" height="180"></canvas><div id="compass">N</div><div id="coords"></div><div id="zoneName"></div></div>
+  <div id="feed"></div>
   <div id="announce"></div>
+  <div id="bigDay"></div>
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="carryInfo"></div>
+  <div id="hotbar"></div>
   <div id="msg"></div>
-  <div id="cross">+</div>
-  <div id="chat"><div id="log"></div><input id="chatin" maxlength="140" placeholder="Say something… (Enter)"></div>
-  <div id="hurt"></div>
-  <div id="online"></div>
+  <div id="tip"></div>
+  <div id="chat"><div id="chatLog"></div><input id="chatInput" maxlength="160" placeholder="Say something… (/help)" autocomplete="off"></div>
+  <div id="party"></div>
+  <div id="flags"></div>
 </div>
-<div id="dead" class="hidden"><div class="panel"><h1>YOU DIED</h1><p id="deadwhy">The store claims another customer.</p><button id="respawn">RESPAWN</button></div></div>
+<div id="board" class="panel hidden"><h2>🏆 Store Survivors</h2><div class="cols"><div><h3>Online</h3><table id="onlineT"></table></div><div><h3>All-time (most nights)</h3><table id="topT"></table></div></div></div>
+<div id="craft" class="panel hidden"><h2>🔨 Crafting <small>(C to close)</small></h2><div id="recipes"></div></div>
+<div id="pause" class="panel hidden"><h2>Paused</h2>
+  <div class="settings"></div>
+  <div class="row"><button id="resumeBtn">Resume</button><button id="helpBtn">Controls</button></div>
+</div>
+<div id="help" class="panel hidden"><h2>Controls</h2><div class="keys">
+<b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>Mouse</b> look · <b>Wheel</b> zoom<br>
+<b>LMB</b> attack / place · <b>RMB / X</b> use item · <b>1-8</b> select slot · <b>G</b> drop item<br>
+<b>E</b> pick up item / grab furniture · <b>R</b> rotate · <b>Q</b> place · <b>L</b> lock barricade<br>
+<b>Z</b> sleep in bed · <b>C</b> crafting · <b>F</b> flashlight · <b>Tab</b> leaderboard · <b>Enter</b> chat<br>
+Emotes: <b>H</b> wave · <b>J</b> dance · <b>K</b> sit · <b>U</b> point · <b>Y</b> cheer<br>
+Chat: /pvp · /party invite NAME · /party accept · /party leave · /me · /stuck</div><button id="helpClose">Close</button></div>
+<div id="death" class="panel hidden"><h1>YOU DIED</h1><p id="deathWhy"></p><button id="respawnBtn">Respawn</button></div>
+<div id="menu">
+  <div class="menuBox">
+    <h1>3008<span>SURVIVAL</span></h1>
+    <p class="sub">An endless furniture store. The staff come out at night.</p>
+    <input id="nameInput" maxlength="16" placeholder="Your name">
+    <button id="playBtn">ENTER THE STORE</button>
+    <div class="settings"></div>
+    <p class="hint">Survive the nights. Build a fort. Don't let them see you.</p>
+    <p class="ver" id="ver"></p>
+  </div>
+</div>
+<div id="touch" class="hidden">
+  <div id="joy"><i></i></div>
+  <div id="tbtns"><button data-k="jump">⤒</button><button data-k="attack">✊</button><button data-k="use">E</button><button data-k="place">▣</button><button data-k="eat">🍴</button><button data-k="sprint">🏃</button><button data-k="sleep">💤</button><button data-k="craft">🔨</button></div>
+</div>
 <script src="/socket.io/socket.io.js"></script>
-<script type="module" src="main.js"></script>
-</body></html>
+<script type="module" src="/main.js"></script>
+</body>
+</html>
