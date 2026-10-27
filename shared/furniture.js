@@ -40,6 +40,11 @@ export const TYPES = {
   fountain: { w: 4, d: 4, h: 0.8, name: 'Fountain', fixed: true },
   pillar: { w: 1, d: 1, h: 6, name: 'Pillar', fixed: true },
   sign: { w: 0.2, d: 0.2, h: 3, name: 'Sign', fixed: true },
+  pallet: { w: 1.2, d: 1.0, h: 0.144, name: 'Pallet' },
+  worklight: { w: 0.7, d: 0.7, h: 2.2, name: 'Tall Worklight', light: true },
+  medstation: { w: 1.2, d: 0.45, h: 1.0, name: 'Medkit Station', fixed: true },
+  tree: { w: 0.9, d: 0.9, h: 2.4, name: 'Small Tree' },
+  infodesk: { w: 2.4, d: 1.0, h: 1.05, name: 'Information Desk', fixed: true },
 };
 
 // Coordinated palettes so every piece reads as one designed product.
@@ -506,6 +511,48 @@ export function localParts(type, c = 7) {
       rb(0, 1.1, 0, 0.92, 0.3, 0.92, 0xf5c518, 'p', 0.02);
       for (const y of [1.15, 1.27]) box(0, y, 0, 0.925, 0.03, 0.925, 0x222222, 'p');
       rb(0, 5.88, 0, 1.0, 0.12, 1.0, 0xc8c6bc, 'p', 0.01);
+      break;
+    }
+    case 'pallet': { // EUR-style pallet: 3 bottom boards, 9 blocks, 3 stringers, 5 top boards
+      const pw = 0xc9a874, pd = 0xb08f5c;
+      for (const x of [-0.5, 0, 0.5]) box(x, 0, 0, 0.1, 0.022, 1.0, pd, 'w');
+      for (const x of [-0.5, 0, 0.5]) for (const z of [-0.45, 0, 0.45]) box(x, 0.022, z, 0.1, 0.078, 0.1, pd, 'w');
+      for (const x of [-0.5, 0, 0.5]) box(x, 0.1, 0, 0.1, 0.022, 1.0, pw, 'w');
+      for (const z of [-0.45, -0.225, 0, 0.225, 0.45]) box(0, 0.122, z, 1.2, 0.022, 0.1, pw, 'w');
+      break;
+    }
+    case 'worklight': { // tripod floodlight
+      for (let i = 0; i < 3; i++) { const a = i * 2.094; box(Math.sin(a) * 0.27, 0, Math.cos(a) * 0.27, 0.06, 0.06, 0.06, 0x222222, 'm'); cyl(Math.sin(a) * 0.15, 0.03, Math.cos(a) * 0.15, 0.025, 0.72, 0xe0b020, 'm', { rx: Math.cos(a) * 0.38, rz: -Math.sin(a) * 0.38, y: 0.38 }); }
+      cyl(0, 0.5, 0, 0.05, 1.4, 0x2b2d30, 'm');
+      rb(0, 1.9, 0, 0.5, 0.36, 0.18, 0xe0b020, 'm', 0.02);
+      box(0, 1.94, 0.091, 0.42, 0.28, 0.01, 0xfff6d8, 'e');
+      break;
+    }
+    case 'medstation': { // wall-style first-aid cabinet on a counter
+      rb(0, 0, 0, 1.2, 0.9, 0.45, OFFWHITE, 'p', 0.012);
+      box(0, 0.9, 0, 1.22, 0.04, 0.47, 0x8c9296, 'p');
+      for (const x of [-0.3, 0.3]) { rb(x, 0.1, 0.226, 0.56, 0.7, 0.01, WHITE, 'p', 0.004); barH(x + 0.2, 0.75, 0.24, 0.12); }
+      box(0, 0.94, -0.2, 1.0, 0.06, 0.04, 0x2f9a4a, 'e');
+      break;
+    }
+    case 'tree': {
+      cyl(0, 0, 0, 0.5, 0.42, 0x3a3d40, 'p', { t: 1.2, seg: 20 });
+      cyl(0, 0.4, 0, 0.44, 0.03, 0x3b2a1e, 'f', { seg: 16 });
+      cyl(0, 0.42, 0, 0.08, 1.2, 0x6a4a32, 'w', { t: 0.6 });
+      const greens = [0x2f6b32, 0x3f8a3c, 0x4f9a48, 0x386f3e];
+      for (let i = 0; i < 14; i++) { const a = i * 2.4 + r() * 0.4, d = 0.12 + r() * 0.15, y = 1.45 + (i / 13) * 0.6 + r() * 0.05, sz = 0.4 - (i / 13) * 0.12; sph(Math.cos(a) * d, y, Math.sin(a) * d, sz, sz * 0.85, sz, pick(greens), 'f'); }
+      cyl(0, 1.4, 0, 0.05, 0.5, 0x6a4a32, 'w');
+      break;
+    }
+    case 'infodesk': { // curved-front information counter with a blue "i" sign
+      rb(0, 0, 0, 2.4, 1.0, 1.0, 0xf2f1ec, 'p', 0.04);
+      box(0, 1.0, 0, 2.4, 0.05, 1.0, 0x1d4fa8, 'p');
+      box(0, 0.25, 0.501, 2.2, 0.5, 0.004, 0xf5c518, 'p');
+      cyl(0.8, 1.05, -0.3, 0.04, 0.9, 0x555555, 'm');
+      rb(0.8, 1.95, -0.3, 0.4, 0.4, 0.06, 0x1d4fa8, 'e', 0.03);
+      box(0.8, 2.08, -0.268, 0.06, 0.06, 0.004, 0xffffff, 'e');
+      box(0.8, 1.99, -0.268, 0.06, 0.13, 0.004, 0xffffff, 'e');
+      rb(-0.5, 1.05, -0.2, 0.42, 0.28, 0.04, 0x111111, 'p', 0.01, { rx: -0.2 });
       break;
     }
     case 'sign': {

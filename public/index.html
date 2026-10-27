@@ -11,14 +11,17 @@
 <div id="game"></div>
 <div id="vignette"></div><canvas id="grain"></canvas><div id="dmgflash"></div>
 <div id="hud" class="hidden">
+  <button id="menuBtn" title="Menu (M / Esc)">☰</button>
+  <div id="plist"></div>
+  <div id="wpList"></div>
   <div id="topbar"><div id="clock"><b id="dayLabel">Day 1</b><span id="timeLabel">09:00</span><div id="timeBar"><i></i></div></div></div>
   <div id="stats">
     <div class="bar hp"><span>❤</span><i></i><em></em></div>
     <div class="bar food"><span>🍖</span><i></i><em></em></div>
     <div class="bar energy"><span>⚡</span><i></i><em></em></div>
     <div class="bar stam"><span>🏃</span><i></i><em></em></div>
-    <div id="level"><b id="lvNum">Lv 1</b><div id="xpBar"><i></i></div><small id="daysLabel">0 nights survived · 0 KOs</small></div>
   </div>
+  <div id="level"><b id="lvNum">Lv 1</b><div id="xpBar"><i></i></div><small id="daysLabel">0 nights survived · 0 KOs</small></div>
   <div id="mapWrap"><canvas id="minimap" width="180" height="180"></canvas><div id="compass">N</div><div id="coords"></div><div id="zoneName"></div></div>
   <div id="feed"></div>
   <div id="announce"></div>
@@ -42,10 +45,10 @@
 <div id="help" class="panel hidden"><h2>Controls</h2><div class="keys">
 <b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>Mouse</b> look · <b>Wheel</b> zoom<br>
 <b>LMB</b> attack / place · <b>RMB / X</b> use item · <b>1-8</b> select slot · <b>G</b> drop item<br>
-<b>E</b> pick up item / grab furniture · <b>R</b> rotate · <b>Q</b> place · <b>L</b> lock barricade<br>
+<b>E</b> pick up item / grab furniture · <b>R</b> rotate · <b>Q</b> place · <b>L</b> anchor / weld your furniture · <b>T</b> waypoint (Shift+T clear) · <b>M</b> menu<br>
 <b>Z</b> sleep in bed · <b>C</b> crafting · <b>F</b> flashlight · <b>Tab</b> leaderboard · <b>Enter</b> chat<br>
 Emotes: <b>H</b> wave · <b>J</b> dance · <b>K</b> sit · <b>U</b> point · <b>Y</b> cheer<br>
-Chat: /pvp · /party invite NAME · /party accept · /party leave · /me · /stuck</div><button id="helpClose">Close</button></div>
+Chat: /pvp · /team invite NAME (or /party) · /party accept · /party leave · /me · /stuck</div><button id="helpClose">Close</button></div>
 <div id="death" class="panel hidden"><h1>YOU DIED</h1><p id="deathWhy"></p><button id="respawnBtn">Respawn</button></div>
 <div id="menu">
   <div class="menuBox">

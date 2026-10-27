@@ -1,8 +1,55 @@
-# 3008 Survival v2.1.0
+# 3008 Survival v2.3.0
 
 An original multiplayer survival game you play in the browser. You are trapped in an endless, procedurally generated furniture store. By day the faceless employees ignore you. When the store closes they hunt in groups, so scavenge, craft and build a fort before night falls. Everything in the game (models, textures, sounds) is original and made in code.
 
 **Play:** https://three008-survival.onrender.com
+
+## What's new in 2.3: closer to the original SCP-3008 Roblox game
+2.3 also includes the 2.2 character work: blocky R6-style avatars made of boxes, with every animation, plus updated employee variants and showcase.
+
+The gameplay now follows the community-documented mechanics of the Roblox game *SCP-3008* (v2.75). All code, models and sounds here are original. No Roblox assets were used.
+- **Day cycle:** day lasts 6 min and night 5 min. Each day has a weekday. Closing and opening announcements play over the store PA, with a 30 s closing warning.
+- **Employees:** extra employees spawn at night and despawn at dawn. They hunt anyone they spot, but give up when you get far enough away. At closing they say "Excuse me, the store is now closed. Please exit the building." (speech bubble, plus optional browser TTS).
+- **Events:**
+  - Foggy Day (every 15th day, plus a small random chance): thick white fog, and employees hunt in daylight and hit much harder.
+  - Blood Night (every 10th day, plus a 5% chance): red lighting, and employees are faster, attack more often, see further and reach higher.
+- **Food from the wiki's consumables list:** apple, banana, beans, burger, chips, chocolate, cookie, fish crackers, hot dog, ice cream, lemon (and slice), meatballs, pizza, donut, 2 L cola, soda, cola, water, cake, candy corn.
+  - Medkits heal over time. Glass shards hurt you.
+  - Food restocks only on Monday and Friday mornings. The Cafeteria plot holds the biggest stash.
+- **Hunger and energy:** hunger drains about 1 point per 15 s, and twice as fast at 0 energy. At 0 hunger you lose health.
+  - Energy drains faster while sprinting, and you can't sprint at 0 energy. Sleep in a bed to recover.
+  - Health regenerates only while you are fed and rested. There is no thirst stat, because the original has none.
+- **Building:**
+  - Grab furniture and stack it on top of other pieces to build up. The placement ghost shows where it will land.
+  - Press **L** to anchor (weld) your own pieces so nobody else can move them.
+  - You can't grab a piece that has something resting on it.
+  - A Claim Flag sets up a **Base Camp** that protects your build and becomes your respawn point. `/team` works as an alias for `/party`.
+- **Plots/landmarks:**
+  - Cafeteria, Play Plot, Industrial Shelves (pallets and work lights), The Atrium.
+  - New: Snack Bar, Pharmacy (medkits), Greenhouse and the Info Booth.
+- **Roblox-style HUD:**
+  - Player list (Days / Level) at top right, chat at top left, and a menu button.
+  - Day, weekday and phase timer at top centre, with stat bars above the hotbar.
+  - Smaller minimap.
+  - **T** drops up to 4 waypoints (3D beams, minimap marks, distances); **Shift+T** clears them.
+
+**Differences from the original (on purpose):**
+- The original has no player weapons, and its employees can't be killed (you can only shove them). Here, crafted weapons are kept as an extra, and employees are only *knocked down* for a few seconds before they get back up.
+- Empty hands shove.
+
+**Sources (community wikis, read October 2026):**
+- https://scp3008-roblox.fandom.com/wiki/Consumables
+- https://scp3008-roblox.fandom.com/wiki/Employees
+- https://scp3008-roblox.fandom.com/wiki/Day_Cycle
+- https://scp3008-roblox.fandom.com/wiki/Foggy_Day
+- https://scp3008-roblox.fandom.com/wiki/Blood_Night
+- https://scp3008-roblox.fandom.com/wiki/Survival_Guide
+- https://scp3008-roblox.fandom.com/wiki/Category:Plots
+- https://scp3008-roblox.fandom.com/wiki/Cafeteria_(plot)
+- https://scp3008-roblox.fandom.com/wiki/Industrial_Shelves_(plot)
+- https://roblox-3008-wiki.fandom.com/wiki/Floating_House_(plot)
+- https://official-rblx-scp3008.fandom.com/wiki/Controls
+- SCP-3008 itself: https://scp-wiki.wikidot.com/scp-3008 (CC BY-SA 3.0)
 
 ## What's new in 2.1 — model rework
 - All 33 furniture types rebuilt from a shared catalogue (`shared/furniture.js`) at real-world dimensions, with bevelled/rounded edges, handles, drawer seams, pillows, blankets, lampshades, books and consistent palettes. Everything stands on the floor and snaps to the grid.
@@ -31,7 +78,9 @@ An original multiplayer survival game you play in the browser. You are trapped i
 | X or RMB | Use item |
 | G | Drop |
 | Z | Sleep |
-| L | Lock |
+| L | Anchor / weld your furniture |
+| T / Shift+T | Waypoint / clear waypoints |
+| M | Menu |
 | C | Craft |
 | F | Flashlight |
 | Tab | Leaderboard |

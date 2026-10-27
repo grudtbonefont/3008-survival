@@ -1,6 +1,6 @@
 // 3008 Survival v2 client
 import * as THREE from 'three';
-import { World, CHUNK, CEIL, CYCLE, DAY, ITEMS, TYPES, FISTS, RECIPES, ZONES, worldParts, aabb, levelOf } from '/shared/world.js';
+import { World, CHUNK, CEIL, CYCLE, DAY, ITEMS, TYPES, FISTS, RECIPES, ZONES, worldParts, aabb, levelOf, weekday } from '/shared/world.js';
 import { Sfx } from '/js/audio.js';
 import { MATS, floorTex, ceilTex, partsGroup, disposeGroup, makeItem, makeHuman, makeEmployee, nameLabel, setHeld, setCarry, animate, unitBox } from '/js/models.js';
 
@@ -44,7 +44,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 $('game').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
-const DAY_FOG = new THREE.Color(0xcfc9b8), NIGHT_FOG = new THREE.Color(0x030304);
+const DAY_FOG = new THREE.Color(0xcfc9b8), NIGHT_FOG = new THREE.Color(0x030304), FOGGY = new THREE.Color(0xe8e8e6), BLOOD_FOG = new THREE.Color(0x3a0002);
 scene.background = DAY_FOG.clone(); scene.fog = new THREE.Fog(DAY_FOG.clone(), 10, 70);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 160);
 scene.add(camera);
@@ -84,8 +84,11 @@ const picked = new Set(), drops = new Map();
 const others = new Map(), npcs = new Map();
 const chunks = new Map(), placedObjs = new Map(), itemMeshes = new Map();
 let boxesCache = [], boxesAt = { x: 1e9, z: 1e9, t: 0 };
-const ICON = { meatballs: '🍝', hotdog: '🌭', pizza: '🍕', chips: '🍟', salad: '🥗', cake: '🎂', juice: '🧃', soda: '🥤', water: '💧', coffee: '☕', meal: '🍲', medkit: '🩹', bandage: '🩼', cloth: '🧶', scrap: '🔩', plank: '🪵', bat: '🏏', pipe: '🔧', crowbar: '🪛', spear: '🔱', nailbat: '🦯' };
-ICON.bandage = '🩹'; ICON.medkit = '💊';
+const ICON = { apple: '🍎', banana: '🍌', beans: '🥫', burger: '🍔', chips: '🍟', chocolate: '🍫', cookie: '🍪', fishcrackers: '🐟', hotdog: '🌭', icecream: '🍦', lemon: '🍋', lemonslice: '🍋',
+  meatballs: '🍝', pizza: '🍕', donut: '🍩', cola2l: '🧴', soda: '🥤', cola: '🍾', water: '💧', cake: '🎂', candycorn: '🌽', glass: '🔷', medkit: '💊', meal: '🍲', bandage: '🩹',
+  cloth: '🧶', scrap: '🔩', plank: '🪵', bat: '🏏', pipe: '🔧', crowbar: '🪛', spear: '🔱', nailbat: '🦯' };
+let dinfo = { day: 1, weekday: 'Monday', fog: false, blood: false };
+const waypoints = [];
 
 // ---------------- chunk streaming ----------------
 const floorMats = {}, ceilMat = new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 0.9 });
@@ -146,10 +149,10 @@ function chunkOfId(id) { const m = /^(-?\d+)_(-?\d+)_/.exec(id); return m ? chun
 // ---------------- items ----------------
 function addItemMesh(it) {
   if (itemMeshes.has(it.id)) return;
-  const m = makeItem(it.type); m.position.set(it.x, 0.02, it.z); m.rotation.y = (it.x * 13 + it.z * 7) % 6.28;
+  const m = makeItem(it.type); m.position.set(it.x, (it.y || 0) + 0.02, it.z); m.rotation.y = (it.x * 13 + it.z * 7) % 6.28;
   const glow = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.45, 20), new THREE.MeshBasicMaterial({ color: 0xf5c518, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
   glow.rotation.x = -Math.PI / 2; glow.position.y = 0.01; m.add(glow);
-  m.userData = { id: it.id, type: it.type, x: it.x, z: it.z, glow };
+  m.userData = { id: it.id, type: it.type, x: it.x, z: it.z, y: it.y || 0, glow };
   scene.add(m); itemMeshes.set(it.id, m);
 }
 function removeItemMesh(id) { const m = itemMeshes.get(id); if (m) { scene.remove(m); m.userData.glow.geometry.dispose(); itemMeshes.delete(id); } }
@@ -161,8 +164,8 @@ function addPlacedObj(o) {
   const obj = world.addPlaced({ ...o });
   const g = partsGroup(worldParts(obj), { shadows: Q.shadows });
   if (o.type === 'barricade' || o.type === 'claim') {
-    const s = nameLabel(o.type === 'claim' ? `${o.ownerName}'s base` : (o.locked ? '🔒 ' : '') + o.ownerName, o.type === 'claim' ? '#7fdbff' : '#ffb', o.hp ? `HP ${o.hp}` : '');
-    s.position.set(o.x, o.type === 'claim' ? 2.9 : 2.9, o.z); s.scale.set(1.8, 0.54, 1); g.add(s); g.userData.label = s;
+    const s = nameLabel(o.type === 'claim' ? `⛺ ${o.ownerName}'s Base Camp` : (o.locked ? '🔩 ' : '') + o.ownerName, o.type === 'claim' ? '#7fdbff' : '#ffb', o.hp ? `HP ${o.hp}` : '');
+    s.position.set(o.x, (o.y || 0) + 2.9, o.z); s.scale.set(1.8, 0.54, 1); g.add(s); g.userData.label = s;
   }
   scene.add(g); placedObjs.set(o.id, g); boxesAt.t = 0;
 }
@@ -171,7 +174,7 @@ function removePlacedObj(id) { const g = placedObjs.get(id); if (g) { scene.remo
 // ---------------- characters ----------------
 function hsl(h, s, l) { return new THREE.Color().setHSL(h, s, l).getHex(); }
 function addOther(p) {
-  const h = makeHuman({ shirt: hsl(p.hue, 0.65, 0.5), pants: hsl((p.hue + 0.5) % 1, 0.3, 0.25), skin: [0xf0c8a0, 0xd1a07a, 0x8d5a3b, 0xffe0c0][(p.hue * 40 | 0) % 4], hair: [0x3b2a1e, 0x111111, 0xd4a650, 0x8b3a1a][(p.hue * 97 | 0) % 4], hairStyle: (p.hue * 10 | 0) % 2 });
+  const h = makeHuman({ shirt: hsl(p.hue, 0.65, 0.5), pants: hsl((p.hue + 0.5) % 1, 0.3, 0.25), skin: [0xf2cf6b, 0xf0c8a0, 0xd1a07a, 0x8d5a3b][(p.hue * 40 | 0) % 4], hair: [0x3b2a1e, 0x111111, 0xd4a650, 0x8b3a1a][(p.hue * 97 | 0) % 4], hairStyle: (p.hue * 10 | 0) % 5 });
   const o = { h, label: null, labelKey: '', tx: p.x, ty: p.y, tz: p.z, try: p.ry, data: p, stepT: 0 };
   scene.add(h.g); h.g.position.set(p.x, p.y, p.z); others.set(p.id, o); return o;
 }
@@ -198,7 +201,7 @@ function connect() {
     for (const id of [...placedObjs.keys()]) removePlacedObj(id);
     d.placed.forEach(addPlacedObj);
     d.drops.forEach(o => { drops.set(o.id, o); addItemMesh(o); });
-    me.x = d.x; me.z = d.z; me.y = 0; gameT = d.t; dayN = d.day;
+    me.x = d.x; me.z = d.z; me.y = 0; gameT = d.t; dayN = d.day; if (d.info) dinfo = d.info;
     $('ver').textContent = 'v' + d.version;
     if (!myModel) { myModel = makeHuman({ shirt: 0xf5c518, pants: 0x1d4fa8 }); scene.add(myModel.g); }
     const dt = params.get('debugTime');
@@ -222,7 +225,7 @@ function connect() {
       seen.add(p.id); const o = others.get(p.id) || addOther(p);
       o.tx = p.x; o.ty = p.y; o.tz = p.z; o.try = p.ry; o.data = p;
       const key = p.name + p.lv + p.pvp + (p.party || '');
-      if (o.labelKey !== key) { if (o.label) { o.h.g.remove(o.label); o.label.material.map.dispose(); } o.label = nameLabel(p.name, p.party && p.party === myParty() ? '#7fdbff' : p.pvp ? '#ff7766' : '#fff', `Lv ${p.lv}${p.pvp ? ' ⚔' : ''}`); o.h.g.add(o.label); o.labelKey = key; }
+      if (o.labelKey !== key) { if (o.label) { o.h.g.remove(o.label); o.label.material.map.dispose(); } o.label = nameLabel(p.name, p.party && p.party === myParty() ? '#7fdbff' : p.pvp ? '#ff7766' : '#fff', `Lv ${p.lv}${p.pvp ? ' ⚔' : ''}`); o.label.position.y = o.h.labelY || 2.45; o.h.g.add(o.label); o.labelKey = key; }
       setHeld(o.h, p.held); setCarry(o.h, p.carry, carryParts(p.carry));
     }
     for (const [id, o] of others) if (!seen.has(id)) { removeModel(o); others.delete(id); }
@@ -239,6 +242,8 @@ function connect() {
   socket.on('unplaced', removePlacedObj);
   socket.on('teleport', (p) => { me.x = p.x; me.y = p.y; me.z = p.z; me.vy = 0; boxesAt.t = 0; });
   socket.on('announce', (a) => announce(a));
+  socket.on('dayinfo', (i) => { dinfo = i; });
+  socket.on('npcsay', (m) => npcSay(m));
   socket.on('chat', (c) => addChat(c));
   socket.on('feed', (t) => addFeed(t));
   socket.on('msg', (t) => showMsg(t));
@@ -291,9 +296,22 @@ function announce(a) {
   const el = $('announce'); el.textContent = '📢 ' + a.text; el.className = 'show ' + (a.kind || '');
   clearTimeout(annTimer); annTimer = setTimeout(() => (el.className = ''), 7000);
   if (a.kind === 'night') { sfx.play('alarm'); bigText(`NIGHT ${dayN}`, 'night'); }
-  else if (a.kind === 'day') { sfx.play('chime'); bigText(`DAY ${dayN}`, ''); }
+  else if (a.kind === 'blood') { sfx.play('alarm'); bigText('BLOOD NIGHT', 'night'); }
+  else if (a.kind === 'fog') { sfx.play('chime'); bigText(`FOGGY DAY`, 'fog'); }
+  else if (a.kind === 'day') { sfx.play('chime'); bigText(`DAY ${dayN} · ${weekday(dayN).toUpperCase()}`, ''); }
   else sfx.play(a.kind === 'creepy' ? 'creak' : 'chime', { gain: 0.5 });
   addChat({ sys: true, text: '📢 ' + a.text });
+}
+function npcSay(m) {
+  const o = npcs.get(m.id); if (!o) return;
+  if (o.bubble) { o.h.g.remove(o.bubble); o.bubble.material.map.dispose(); }
+  const b = nameLabel('“' + m.text.replace('Excuse me, ', 'Excuse me… ').slice(0, 44) + (m.text.length > 44 ? '…”' : '”'), '#fff');
+  b.scale.set(3.6, 1.08, 1); b.position.y = (o.h.labelY || 2.4) + 0.5; o.h.g.add(b); o.bubble = b; o.bubbleT = 4;
+  const sp = spatial(o.h.g.position);
+  // the employees' monotone voice (optional, browser TTS) for the nearest one only
+  if (sp.gain > 0.55 && settings.vol > 0 && 'speechSynthesis' in window && !speechSynthesis.speaking) {
+    try { const u = new SpeechSynthesisUtterance(m.text); u.rate = 0.85; u.pitch = 0.3; u.volume = Math.min(1, settings.vol * sp.gain); speechSynthesis.speak(u); } catch { /* no TTS */ }
+  }
 }
 function bigText(t, cls) { const b = $('bigDay'); b.textContent = t; b.className = 'show ' + cls; setTimeout(() => (b.className = cls), 3500); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -317,6 +335,7 @@ function dmgNumber(h) {
   setTimeout(() => d.remove(), 900);
 }
 function renderBoard(b) {
+  $('plist').innerHTML = '<div class="ph"><span>Players</span><span>Days</span><span>Lv</span></div>' + b.online.slice(0, 12).map(p => `<div class="pr${p.name === myName ? ' me' : ''}${p.party && p.party === myParty() ? ' tm' : ''}"><span>${esc(p.name)}</span><span>${p.days}</span><span>${p.lv}</span></div>`).join('');
   $('onlineT').innerHTML = '<tr><th>Name</th><th>Lv</th><th>Nights</th><th>KOs</th></tr>' + b.online.map(p => `<tr><td>${esc(p.name)}${p.party ? ' 👥' : ''}</td><td>${p.lv}</td><td>${p.days}</td><td>${p.kos}</td></tr>`).join('');
   $('topT').innerHTML = '<tr><th>#</th><th>Name</th><th>Best</th><th>Lv</th></tr>' + b.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${p.bestDays}</td><td>${p.level}</td></tr>`).join('');
 }
@@ -334,12 +353,14 @@ function renderCraft() {
   }
 }
 const TIPS = [
-  'Welcome to the store! Grab food (E) and keep your hunger up. Night comes after the timer bar turns red.',
-  'Employees are harmless by day. At night they hunt in groups — build a fort with furniture (E to grab, LMB to place).',
-  'Craft barricades (C) from planks + scrap. Locked barricades must be smashed by employees.',
+  'Welcome to the store! Days last 6 minutes, nights 5. Food restocks every Monday and Friday morning — the Cafeteria has the most.',
+  'Employees wander harmlessly by day. At night they hunt anyone they spot — build a fort (E grab, LMB place, stack pieces on top of each other).',
+  'Press L to anchor (weld) your placed furniture so nobody else can move it. Press T to drop a waypoint.',
+  'Watch out for Foggy Days (thick fog, employees hunt all day) and Blood Nights (red lights, faster employees).',
+  'Empty hands shove employees back. They can be knocked down, but never stay down for long.',
   'Sleep in a bed (Z) to restore energy. If everyone sleeps at night, the night is skipped!',
   'Press F for your flashlight. Shift sprints but uses stamina.',
-  'Place a Claim Flag to protect your base and respawn there.',
+  'Place a Claim Flag to set up a Base Camp: it protects your fort and you respawn there. /team invite NAME to team up.',
   'Press Tab for the leaderboard, Enter to chat, Esc for settings.',
 ];
 let tipIdx = 0, tipTimer;
@@ -366,7 +387,8 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('wheel', (e) => { camDist = Math.max(2.2, Math.min(10, camDist + e.deltaY * 0.004)); });
 document.addEventListener('mousedown', (e) => { if (!locked || !playing) return; if (e.button === 0) primary(); if (e.button === 2) useItem(); });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
-function openPause() { $('pause').classList.remove('hidden'); }
+function openPause() { $('pause').classList.remove('hidden'); if (document.pointerLockElement) document.exitPointerLock(); }
+$('menuBtn').onclick = () => openPause();
 $('resumeBtn').onclick = () => { $('pause').classList.add('hidden'); if (!isTouch) lockPointer(); };
 $('helpBtn').onclick = () => $('help').classList.remove('hidden');
 $('helpClose').onclick = () => $('help').classList.add('hidden');
@@ -395,6 +417,8 @@ addEventListener('keydown', (e) => {
   if (k === 'KeyF') { flashOn = !flashOn; sfx.play('click'); }
   if (k === 'KeyZ') { if (stats.sleeping) socket.emit('wake'); else socket.emit('sleep'); }
   if (k === 'KeyL') lockNearest();
+  if (k === 'KeyT') { if (e.shiftKey) { while (waypoints.length) removeWaypoint(0); showMsg('Waypoints cleared'); } else addWaypoint(); }
+  if (k === 'KeyM') openPause();
   const em = { KeyH: 'wave', KeyJ: 'dance', KeyK: 'sit', KeyU: 'point', KeyY: 'cheer' }[k];
   if (em) socket.emit('emote', em);
 });
@@ -440,10 +464,26 @@ function primary() {
 }
 function useItem() { const it = stats.inv[sel]; if (!it) return; const d = ITEMS[it.t]; if (d.weapon || d.mat) return showMsg(d.weapon ? 'Attack with LMB' : 'Use materials in crafting (C)'); socket.emit('use', sel); }
 function lockNearest() {
+  // anchor / weld the placed piece you're looking at (or the nearest one you own)
+  const t = target(); if (t?.kind === 'furn' && t.id.startsWith('p_')) return socket.emit('lock', t.id);
   let best = null, bd = 16;
-  for (const [id] of placedObjs) { const o = world.placed.get(id); if (o?.type === 'barricade') { const d = (o.x - me.x) ** 2 + (o.z - me.z) ** 2; if (d < bd) { bd = d; best = id; } } }
-  if (best) socket.emit('lock', best); else showMsg('No barricade nearby');
+  for (const [id] of placedObjs) { const o = world.placed.get(id); if (o && o.owner === myName) { const d = (o.x - me.x) ** 2 + (o.z - me.z) ** 2; if (d < bd) { bd = d; best = id; } } }
+  if (best) socket.emit('lock', best); else showMsg('Nothing of yours to anchor nearby');
 }
+// ---------------- waypoints ----------------
+const WP_COL = ['#2ecc71', '#3fa9f5', '#f5c518', '#e67e22'];
+function addWaypoint() {
+  if (waypoints.length >= 4) removeWaypoint(0);
+  const col = WP_COL.find(c => !waypoints.some(w => w.col === c)) || WP_COL[0];
+  const g = new THREE.Group();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, CEIL, 8, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.45, depthWrite: false, fog: false }));
+  beam.position.y = CEIL / 2; g.add(beam);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.6, 24), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.8, fog: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = me.y + 0.03; g.add(ring);
+  const n = waypoints.length + 1, lab = nameLabel('◆ Waypoint ' + n, col); lab.position.y = me.y + 2.6; lab.scale.set(2.2, 0.66, 1); lab.material.depthTest = false; lab.material.fog = false; g.add(lab);
+  g.position.set(me.x, 0, me.z); scene.add(g);
+  waypoints.push({ x: me.x, z: me.z, col, g, n }); sfx.play('click'); showMsg(`Waypoint placed (${waypoints.length}/4) — Shift+T clears`);
+}
+function removeWaypoint(i) { const w = waypoints.splice(i, 1)[0]; if (!w) return; scene.remove(w.g); w.g.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); }); }
 
 // ---------------- ghost preview ----------------
 let ghost = null, ghostType = null;
@@ -453,7 +493,8 @@ function updateGhost() {
   const c = stats.carry;
   if (!c) { if (ghost) { scene.remove(ghost); disposeGroup(ghost); ghost = null; ghostType = null; } return; }
   const gp = ghostPos();
-  const box = aabb({ type: c.type, x: gp.x, z: gp.z, rot: gp.rot });
+  const gy = world.stackY(aabb({ type: c.type, x: gp.x, z: gp.z, rot: gp.rot }));
+  const box = aabb({ type: c.type, x: gp.x, z: gp.z, rot: gp.rot, y: gy });
   const ok = world.canPlace(box);
   const key = c.type + gp.rot + ok;
   if (ghostType !== key) {
@@ -461,7 +502,7 @@ function updateGhost() {
     ghost = partsGroup(worldParts({ type: c.type, x: 0, z: 0, rot: gp.rot, c: c.c || 7 }), { matOverride: ok ? ghostOk : ghostBad });
     scene.add(ghost); ghostType = key;
   }
-  ghost.position.set(gp.x, 0, gp.z);
+  ghost.position.set(gp.x, gy, gp.z);
 }
 
 // ---------------- touch controls ----------------
@@ -515,6 +556,7 @@ function drawMinimap() {
   for (const b of boxesCache) { if (b.walk) continue; const t = b.f.type; mm.fillStyle = t === 'barricade' ? '#c8955a' : t === 'claim' ? '#7fdbff' : TYPES[t]?.bed ? '#6a8cc8' : TYPES[t]?.stove ? '#e67e22' : 'rgba(210,200,180,.75)'; mm.fillRect(b.x0, b.z0, b.x1 - b.x0, b.z1 - b.z0); }
   mm.fillStyle = '#f5c518'; for (const m of itemMeshes.values()) { mm.fillRect(m.userData.x - 0.4, m.userData.z - 0.4, 0.8, 0.8); }
   for (const o of npcs.values()) { mm.fillStyle = o.data.d ? '#555' : o.data.h ? '#ff2020' : '#e0d070'; mm.beginPath(); mm.arc(o.h.g.position.x, o.h.g.position.z, o.data.k === 'giant' ? 1.3 : 0.9, 0, 7); mm.fill(); }
+  for (const w of waypoints) { mm.fillStyle = w.col; mm.save(); mm.translate(w.x, w.z); mm.rotate(Math.PI / 4); mm.fillRect(-1.1, -1.1, 2.2, 2.2); mm.restore(); }
   for (const o of others.values()) { mm.fillStyle = o.data.party && o.data.party === myParty() ? '#7fdbff' : '#fff'; mm.beginPath(); mm.arc(o.h.g.position.x, o.h.g.position.z, 0.9, 0, 7); mm.fill(); }
   mm.restore();
   // me (always pointing up)
@@ -557,9 +599,9 @@ function loop() {
   }
   const moving = Math.hypot(mx, mz) > 0.1 && !stats.sleeping;
   if (Math.hypot(mx, mz) > 0.1 && stats.sleeping) socket.emit('wake');
-  const wantSprint = (keys.ShiftLeft || keys.ShiftRight) && moving && stamina > 1;
+  const wantSprint = (keys.ShiftLeft || keys.ShiftRight) && moving && stamina > 1 && stats.energy > 0; // no energy = no sprinting (wiki)
   stamina = Math.max(0, Math.min(100, stamina + (wantSprint ? -22 : moving ? 8 : 16) * dt));
-  let speed = (wantSprint ? 8.4 : 5.2) * (stats.energy < 15 ? 0.7 : 1) * (stats.carry ? 0.85 : 1);
+  let speed = (wantSprint ? 8.4 : 5.2) * (stats.energy <= 0 ? 0.8 : 1) * (stats.carry ? 0.85 : 1);
   if (moving) {
     const l = Math.max(1, Math.hypot(mx, mz)); mx /= l; mz /= l;
     const f = fwd(), rx = -f.z, rz = f.x;
@@ -602,7 +644,8 @@ function loop() {
   for (const o of npcs.values()) {
     const g = o.h.g, k = Math.min(1, dt * 8); g.position.x += (o.tx - g.position.x) * k; g.position.z += (o.tz - g.position.z) * k;
     let d = o.try - g.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); g.rotation.y += d * k;
-    const hostile = !!o.data.h;
+    const hostile = !!o.data.h || gameT >= DAY || dinfo.fog; // night (and Foggy Day) employees look hostile even before they spot you
+    if (o.bubble) { o.bubbleT -= dt; if (o.bubbleT <= 0) { o.h.g.remove(o.bubble); o.bubble.material.map.dispose(); o.bubble = null; } }
     animate(o.h, dt, { moving: !!o.data.m && !o.data.d, speed: o.data.k === 'runner' ? 1.6 : hostile ? 1.3 : 0.6, hostile, down: !!o.data.d });
     const sp = spatial(g.position);
     if (sp.gain > 0 && !o.data.d) {
@@ -611,14 +654,16 @@ function loop() {
     }
   }
   // items bob
-  for (const m of itemMeshes.values()) { m.rotation.y += dt * 0.8; m.position.y = 0.05 + Math.sin(now * 0.003 + m.userData.x) * 0.04; m.userData.glow.material.opacity = 0.3 + Math.sin(now * 0.005) * 0.2; }
+  for (const m of itemMeshes.values()) { m.rotation.y += dt * 0.8; m.position.y = m.userData.y + 0.05 + Math.sin(now * 0.003 + m.userData.x) * 0.04; m.userData.glow.material.opacity = 0.3 + Math.sin(now * 0.005) * 0.2; }
 
   // ---- lighting ----
   const day = 1 - nightF;
   hemi.intensity = 0.12 + day * 1.1; hemi.color.setRGB(1, 0.97 - nightF * 0.4, 0.9 - nightF * 0.5);
   sun.intensity = day * 1.0; sun.position.set(me.x + 6, CEIL + 8, me.z + 4); sun.target.position.set(me.x, 0, me.z);
-  scene.fog.color.copy(DAY_FOG).lerp(NIGHT_FOG, nightF); scene.background.copy(scene.fog.color);
-  scene.fog.near = 10 - nightF * 8; scene.fog.far = 70 - nightF * 44;
+  const bloodF = dinfo.blood ? nightF : 0, fogF = dinfo.fog ? day : 0;
+  scene.fog.color.copy(DAY_FOG).lerp(FOGGY, fogF).lerp(NIGHT_FOG, nightF).lerp(BLOOD_FOG, bloodF * 0.6); scene.background.copy(scene.fog.color);
+  scene.fog.near = (10 - nightF * 8) * (1 - fogF) + 2 * fogF; scene.fog.far = (70 - nightF * 44) * (1 - fogF) + 18 * fogF;
+  if (bloodF) hemi.color.setRGB(1, 0.25, 0.22);
   panelMat.color.setRGB(1 - nightF * 0.92, 1 - nightF * 0.96, 1 - nightF * 0.96);
   const flick = Math.random() < 0.08 ? 0.15 : (Math.sin(now * 0.05) > 0.7 ? 0.5 : 1);
   flickerMat.color.setScalar(flick * (1 - nightF * 0.9));
@@ -629,7 +674,7 @@ function loop() {
     panels.sort((a, b) => a[0] - b[0]);
     lightPool.forEach((l, i) => { const p = panels[i]; if (p) { l.position.set(p[1][0], CEIL - 0.4, p[1][1]); l.userData.flick = p[2]; } l.visible = !!p; });
   }
-  lightPool.forEach((l, i) => { const base = 14 * day + (i === 0 || i === 3 ? nightF * 3 : 0); l.intensity = base * (l.userData.flick ? flick : 1); l.color.setRGB(1, 0.95 - nightF * 0.6, 0.85 - nightF * 0.7); });
+  lightPool.forEach((l, i) => { const base = 14 * day + (i === 0 || i === 3 ? nightF * 3 : 0); l.intensity = base * (l.userData.flick ? flick : 1); l.color.setRGB(1, (0.95 - nightF * 0.6) * (1 - bloodF * 0.8), (0.85 - nightF * 0.7) * (1 - bloodF * 0.8)); if (bloodF) l.intensity += bloodF * 4; });
   flash.intensity = flashOn ? 40 + nightF * 20 : 0;
   sfx.setNight(nightF);
   $('vignette').style.background = `radial-gradient(ellipse at center,transparent ${55 - nightF * 25}%,rgba(0,0,0,${0.55 + nightF * 0.4}) 100%)`;
@@ -657,16 +702,18 @@ function loop() {
     const t = target(), pr = $('prompt');
     const bed = boxesCache.find(b => TYPES[b.f.type]?.bed && Math.max(b.x0 - me.x, 0, me.x - b.x1) ** 2 + Math.max(b.z0 - me.z, 0, me.z - b.z1) ** 2 < 2.25);
     let html = '';
-    if (t) html = t.kind === 'item' ? `<b>E</b> pick up ${t.name}` : `<b>E</b> grab ${t.name}${t.f?.locked ? ' 🔒' : ''}`;
+    if (t) html = t.kind === 'item' ? `<b>E</b> pick up ${t.name}` : `<b>E</b> grab ${t.name}${t.f?.locked ? ' 🔩 anchored' : ''}${t.id.startsWith('p_') && t.f?.owner === myName ? ' · <b>L</b> ' + (t.f.locked ? 'unanchor' : 'anchor') : ''}`;
     if (bed && !stats.sleeping && !stats.carry) html += (html ? ' · ' : '') + '<b>Z</b> sleep';
     if (stats.sleeping) html = '💤 Sleeping… <b>Z</b>/move to wake';
     if (nearStove() && !stats.carry) html += (html ? ' · ' : '') + '<b>C</b> cook';
     pr.innerHTML = html; pr.style.display = html ? 'block' : 'none';
     const hrs = (gameT / CYCLE * 24 + 9) % 24, night = gameT >= DAY;
-    $('dayLabel').textContent = `${night ? '🌙 Night' : '☀ Day'} ${dayN}`;
-    $('timeLabel').textContent = `${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor(hrs % 1 * 60)).padStart(2, '0')}` + (night ? ` · dawn in ${Math.ceil(CYCLE - gameT)}s` : ` · closing in ${Math.ceil(DAY - gameT)}s`);
+    const left = Math.ceil(night ? CYCLE - gameT : DAY - gameT), mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    $('dayLabel').textContent = `Day ${dayN} · ${weekday(dayN)}`;
+    $('timeLabel').textContent = (night ? (dinfo.blood ? '🩸 BLOOD NIGHT' : '🌙 NIGHT') : dinfo.fog ? '🌫 FOGGY DAY' : '☀ DAY') + ` · ${night ? 'opens' : 'closes'} in ${mmss}` + `  ·  ${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor(hrs % 1 * 60)).padStart(2, '0')}`;
     $('timeBar').firstElementChild.style.width = (gameT / CYCLE * 100) + '%';
-    $('clock').classList.toggle('night', night);
+    $('clock').classList.toggle('night', night); $('clock').classList.toggle('blood', night && dinfo.blood); $('clock').classList.toggle('fog', !night && dinfo.fog);
+    $('wpList').innerHTML = waypoints.map(w => `<div style="color:${w.col}">◆ ${w.n} · ${Math.round(Math.hypot(w.x - me.x, w.z - me.z))} m</div>`).join('');
   }
   renderer.render(scene, camera);
 }
@@ -674,4 +721,4 @@ function h0attackFacing() { return locked && myModel && myModel.swing > 0.8; }
 requestAnimationFrame(loop);
 applySettings();
 // expose for automated tests
-window.__game = { get me() { return me; }, get stats() { return stats; }, get npcs() { return npcs.size; }, get others() { return others.size; }, get chunks() { return chunks.size; }, get night() { return nightF; }, get t() { return gameT; }, setYaw: (y) => (yaw = y), setPitch: (p) => (pitch = p), emit: (...a) => socket.emit(...a), toggleFlash: () => (flashOn = !flashOn), keys };
+window.__game = { get dinfo() { return dinfo; }, setInfo: (i) => Object.assign(dinfo, i), addWaypoint: () => addWaypoint(), get me() { return me; }, get stats() { return stats; }, get npcs() { return npcs.size; }, get others() { return others.size; }, get chunks() { return chunks.size; }, get night() { return nightF; }, get t() { return gameT; }, setYaw: (y) => (yaw = y), setPitch: (p) => (pitch = p), emit: (...a) => socket.emit(...a), toggleFlash: () => (flashOn = !flashOn), keys };

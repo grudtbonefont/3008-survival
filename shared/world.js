@@ -1,50 +1,82 @@
 // Shared deterministic world generation, navigation and collision (server + client).
-export const VERSION = '2.1.0';
+export const VERSION = '2.3.0';
 export const CHUNK = 24;
 export const CEIL = 6;
-export const CYCLE = 600;   // seconds per day
-export const DAY = 380;     // first DAY seconds are daytime
+// Day/night lengths follow the Roblox 3008 wiki: a Day (and Foggy Day) lasts 6 minutes, a Night (and Blood Night) 5 minutes.
+export const DAY = 360;     // first DAY seconds of a cycle are daytime
+export const NIGHT = 300;
+export const CYCLE = DAY + NIGHT;
 export const isNight = (t) => t >= DAY;
+export const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const weekday = (d) => WEEK[(((d - 1) % 7) + 7) % 7];
+export const isRestockDay = (d) => { const w = weekday(d); return w === 'Monday' || w === 'Friday'; };
 
 import { hash, rng } from './rng.js';
 import { TYPES, localParts } from './furniture.js';
 export { hash, rng, TYPES, localParts };
 
+// Special days (wiki): a Foggy Day happens every 15th day or with a 1% chance; a Blood Night every 10th night or with a 5% chance.
+export function dayInfo(seed, d) {
+  const r = rng(hash(seed | 0, d | 0, 0x3008));
+  const fog = d > 1 && (d % 15 === 0 || r() < 0.01);
+  const blood = d % 10 === 0 || (d > 1 && r() < 0.05);
+  return { day: d, weekday: weekday(d), fog, blood, restock: isRestockDay(d) };
+}
+
+// Consumables use the values from the wiki's Consumables table (food = hunger, energy, heal = health; negative values hurt).
+// cons: true -> restocks on in-game Mondays and Fridays instead of respawning on a timer.
 export const ITEMS = {
-  meatballs: { name: 'Meatballs', food: 30, w: 5 },
-  hotdog: { name: 'Hot Dog', food: 22, w: 5 },
-  pizza: { name: 'Pizza Slice', food: 26, w: 4 },
-  chips: { name: 'Chips', food: 12, w: 5 },
-  salad: { name: 'Salad', food: 16, heal: 5, w: 3 },
-  cake: { name: 'Cake', food: 40, w: 2 },
-  juice: { name: 'Juice', food: 6, energy: 25, w: 4 },
-  soda: { name: 'Soda', food: 4, energy: 30, w: 4 },
-  water: { name: 'Water', energy: 15, heal: 3, w: 4 },
-  coffee: { name: 'Coffee', energy: 50, w: 2 },
-  meal: { name: 'Cooked Meal', food: 75, heal: 15, w: 0 },
-  medkit: { name: 'Medkit', heal: 60, w: 1.5 },
-  bandage: { name: 'Bandage', heal: 30, w: 0 },
+  apple: { name: 'Apple', heal: 5, energy: 6, food: 12, cons: true },
+  banana: { name: 'Banana', heal: 5, energy: 6, food: 14, cons: true },
+  beans: { name: 'Beans', heal: -10, energy: 5, food: 18, cons: true },
+  burger: { name: 'Burger', energy: 6, food: 20, cons: true },
+  chips: { name: 'Chips', energy: 4, food: 10, cons: true },
+  chocolate: { name: 'The Good Chocolate', energy: 18, food: 15, cons: true, rare: true },
+  cookie: { name: 'Cookie', energy: 8, food: 8, cons: true },
+  fishcrackers: { name: 'Fish Crackers', energy: 2, food: 18, cons: true },
+  hotdog: { name: 'Hot Dog', energy: 3, food: 18, cons: true },
+  icecream: { name: 'Ice Cream', energy: 13, food: 6, cons: true },
+  lemon: { name: 'Lemon', heal: 4, energy: 10, food: 10, cons: true },
+  lemonslice: { name: 'Lemon Slice', heal: 2, energy: 5, food: 5, cons: true },
+  meatballs: { name: 'Meatballs', energy: 6, food: 30, cons: true },
+  pizza: { name: 'Pizza Slice', energy: 2, food: 5, cons: true },
+  donut: { name: 'Striped Donut', energy: 15, food: 9, cons: true },
+  cola2l: { name: '2 Litre Cola', heal: -5, energy: 23, cons: true },
+  soda: { name: 'Soda Can', energy: 17, cons: true },
+  cola: { name: 'Cola Bottle', energy: 17, cons: true },
+  water: { name: 'Water', heal: 3, energy: 12, cons: true },
+  cake: { name: 'Cake', energy: 15, food: 20, cons: true, rare: true },
+  candycorn: { name: 'Candy Corn', heal: 1, energy: 3, food: 2, cons: true, rare: true },
+  glass: { name: 'Glass Shard', heal: -33, cons: true },
+  medkit: { name: 'Medkit', heal: 30, healTime: 2, cons: true },
+  // this game's own extras (not in the original): crafting materials, crafted food and improvised tools
+  meal: { name: 'Cooked Meal', food: 45, energy: 10, heal: 10 },
+  bandage: { name: 'Bandage', heal: 15 },
   cloth: { name: 'Cloth', mat: true, w: 4 },
   scrap: { name: 'Scrap Metal', mat: true, w: 4 },
   plank: { name: 'Plank', mat: true, w: 4 },
   bat: { name: 'Bat', weapon: true, dmg: 26, range: 2.4, cd: 600, dur: 45, kb: 1.2, w: 1 },
   pipe: { name: 'Pipe', weapon: true, dmg: 32, range: 2.2, cd: 750, dur: 60, kb: 1.0, w: 1 },
-  crowbar: { name: 'Crowbar', weapon: true, dmg: 38, range: 2.0, cd: 850, dur: 80, kb: 1.4, w: 0.6 },
+  crowbar: { name: 'Crowbar', weapon: true, dmg: 38, range: 2.0, cd: 850, dur: 80, kb: 1.4, w: 0.4 },
   spear: { name: 'Spear', weapon: true, dmg: 34, range: 3.2, cd: 700, dur: 50, kb: 0.8, w: 0 },
   nailbat: { name: 'Nail Bat', weapon: true, dmg: 44, range: 2.4, cd: 650, dur: 60, kb: 1.6, w: 0 },
 };
-export const FISTS = { name: 'Fists', dmg: 8, range: 1.8, cd: 450, kb: 0.6 };
+// Empty hands = the original's left-click shove: little damage, strong knock-back and a short stun.
+export const FISTS = { name: 'Shove', dmg: 6, range: 1.9, cd: 450, kb: 1.8, stun: 900 };
 export const RECIPES = [
   { id: 'bandage', name: 'Bandage', needs: { cloth: 2 }, gives: 'bandage' },
   { id: 'meal', name: 'Cooked Meal', needs: { meatballs: 1, hotdog: 1 }, gives: 'meal', stove: true },
-  { id: 'meal2', name: 'Cooked Meal (pizza)', needs: { pizza: 1, salad: 1 }, gives: 'meal', stove: true },
+  { id: 'meal2', name: 'Cooked Meal (pizza)', needs: { pizza: 2, chips: 1 }, gives: 'meal', stove: true },
   { id: 'spear', name: 'Spear', needs: { pipe: 1, scrap: 1 }, gives: 'spear' },
   { id: 'nailbat', name: 'Nail Bat', needs: { bat: 1, scrap: 1 }, gives: 'nailbat' },
   { id: 'barricade', name: 'Barricade', needs: { plank: 2, scrap: 1 }, carry: 'barricade' },
   { id: 'claim', name: 'Claim Flag', needs: { plank: 1, cloth: 1 }, carry: 'claim' },
 ];
 const pool = (filter) => Object.entries(ITEMS).filter(([k, v]) => v.w > 0 && filter(v)).flatMap(([k, v]) => Array(Math.round(v.w * 4)).fill(k));
-const ITEM_POOL = pool(() => true), FOOD_POOL = pool(v => v.food || v.energy);
+const ITEM_POOL = pool(() => true);
+// Plot loot tables (wiki "List of Consumable-spawning plots"). Cafeteria counts are exact.
+const CAFETERIA_LOOT = { burger: 6, hotdog: 2, cola2l: 3, chips: 10, beans: 1, donut: 1, soda: 4, meatballs: 3, banana: 5, apple: 2, lemon: 2, pizza: 8, water: 5, medkit: 1 };
+const expand = (o) => Object.entries(o).flatMap(([k, n]) => Array(n).fill(k));
 
 export const ZONES = {
   aisles: { name: 'Market Hall', w: 10, floor: 0xb9b3a3 },
@@ -54,13 +86,17 @@ export const ZONES = {
   kitchen: { name: 'Kitchens', w: 7, floor: 0xd0d0cc },
   bathroom: { name: 'Bathrooms', w: 6, floor: 0xc6d4dc },
   office: { name: 'Workspaces', w: 6, floor: 0xa9aeb5 },
-  warehouse: { name: 'Self-Serve Warehouse', w: 5, floor: 0x9c9a94 },
+  warehouse: { name: 'Industrial Shelves', w: 5, floor: 0x9c9a94 },
   displays: { name: 'Showroom', w: 5, floor: 0xbcb6a8 },
   mixed: { name: 'Bargain Corner', w: 6, floor: 0xb5ad9c },
-  cafeteria: { name: 'Restaurant', w: 3, floor: 0xd6c7a8 },
-  kids: { name: 'Kids Land', w: 3, floor: 0xb8d0b0 },
+  cafeteria: { name: 'Cafeteria', w: 2.4, floor: 0xd6c7a8 },
+  kids: { name: 'Play Plot', w: 2, floor: 0xb8d0b0 },
+  snack: { name: 'Snack Shop', w: 2, floor: 0xd8c9b0 },
+  pharmacy: { name: 'Pharmacy', w: 2.5, floor: 0xdfe6e8 },
+  greenhouse: { name: 'Greenhouse', w: 1.6, floor: 0xa8b89a },
+  infobooth: { name: 'Information Booth', w: 0.8, floor: 0xc9c2b2, special: true },
   checkout: { name: 'Checkout', w: 3, floor: 0xc0c0c8 },
-  clock: { name: 'The Clock Atrium', w: 0.8, floor: 0xd8d0c0, special: true },
+  clock: { name: 'The Atrium', w: 0.8, floor: 0xd8d0c0, special: true },
   fountain: { name: 'Fountain Court', w: 0.8, floor: 0xd0d8dc, special: true },
 };
 const ZONE_POOL = Object.entries(ZONES).flatMap(([k, v]) => Array(Math.round(v.w * 5)).fill(k));
@@ -71,12 +107,14 @@ export function rotXZ(x, z, rot) {
 // Parts plus the owning object's placement (X, Z, yaw Y). Rendering composes the transforms.
 export function worldParts(f) {
   const Y = (f.rot & 3) * Math.PI / 2;
-  return localParts(f.type, f.c).map(p => ({ ...p, X: f.x, Z: f.z, Y }));
+  const yo = f.y || 0;
+  return localParts(f.type, f.c).map(p => ({ ...p, y: p.y + yo, X: f.x, Z: f.z, Y }));
 }
 export function aabb(f) {
   const t = TYPES[f.type]; const odd = f.rot & 1;
   const hw = (odd ? t.d : t.w) / 2, hd = (odd ? t.w : t.d) / 2;
-  return { x0: f.x - hw, x1: f.x + hw, z0: f.z - hd, z1: f.z + hd, h: t.h, walk: !!t.walk, f };
+  const y0 = f.y || 0;
+  return { x0: f.x - hw, x1: f.x + hw, z0: f.z - hd, z1: f.z + hd, y0, h: y0 + t.h, walk: !!t.walk, f };
 }
 export function overlap(a, b, m = 0) { return a.x0 - m < b.x1 && a.x1 + m > b.x0 && a.z0 - m < b.z1 && a.z1 + m > b.z0; }
 
@@ -158,11 +196,28 @@ export class World {
         break;
       case 'warehouse':
         for (let a = 4; a <= 20; a += 5.5) for (let b = 5; b <= 20; b += 5) maybe(0.9, () => add('rack', b, a, 0));
+        for (let i = 0; i < 6; i++) add('pallet', 2.5 + i * 3.4, 22.2, (r() * 2) | 0);
+        maybe(0.8, () => add('worklight', 21.5, 1.8, 0));
         break;
       case 'cafeteria':
         add('foodcounter', 6, 3, 0); add('foodcounter', 10, 3, 0); add('foodcounter', 14, 3, 0);
         for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const x = 6 + i * 6, z = 10 + j * 7; add('table', x, z, 0); add('chair', x, z - 0.85, 0); add('chair', x, z + 0.85, 2); }
         add('plant', 20, 4);
+        break;
+      case 'snack':
+        add('counter', 8, 4, 0); add('counter', 10, 4, 0); add('fridge', 12.35, 4, 0); add('fridge', 13.05, 4, 0);
+        for (const [x, z] of [[7, 11], [12, 11], [17, 11], [7, 17], [12, 17], [17, 17]]) { add('table', x, z, 0); add('chair', x, z - 0.85, 0); }
+        break;
+      case 'pharmacy':
+        for (let i = 0; i < 4; i++) add('medstation', 5 + i * 4.5, 3, 0);
+        for (let i = 0; i < 3; i++) add('shelf', 7 + i * 5, 12, 0);
+        add('register', 12, 19, 2);
+        break;
+      case 'greenhouse':
+        for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) maybe(0.8, () => add(r() < 0.3 ? 'tree' : 'plant', 4 + i * 4, 4 + j * 5));
+        break;
+      case 'infobooth':
+        add('infodesk', 12, 12, 0); for (const [x, z] of [[10.5, 14], [13.5, 14]]) add('chair', x, z, 2); add('plant', 8, 9); add('plant', 16, 9);
         break;
       case 'kids':
         add('ballpit', 7, 7, 0); add('slide', 16, 7, (r() * 4) | 0); add('rug', 7, 15, 0); add('rug', 16, 16, 1);
@@ -193,15 +248,41 @@ export class World {
     for (const f of furn) f.box = aabb(f);
     // items
     const items = [];
-    const n = 1 + ((r() * 4) | 0) + (zone === 'cafeteria' ? 4 : 0) + (zone === 'warehouse' ? 1 : 0);
-    for (let i = 0; i < n; i++) {
+    const put = (type, x, z, y = 0) => items.push({ id: `i_${cx}_${cz}_${items.length}`, type, x: ox + x, z: oz + z, ...(y ? { y } : {}) });
+    const floorSpot = () => {
       for (let tries = 0; tries < 8; tries++) {
         const x = ox + 1.5 + r() * 21, z = oz + 1.5 + r() * 21;
         if (furn.some(f => !f.box.walk && x > f.box.x0 - 0.4 && x < f.box.x1 + 0.4 && z > f.box.z0 - 0.4 && z < f.box.z1 + 0.4)) continue;
-        const pl = zone === 'cafeteria' || (zone === 'kitchen' && r() < 0.5) ? FOOD_POOL : ITEM_POOL;
-        items.push({ id: `i_${cx}_${cz}_${i}`, type: pl[(r() * pl.length) | 0], x, z }); break;
+        return [x - ox, z - oz];
       }
-    }
+      return null;
+    };
+    // lay a list of items in rows along the top of some furniture
+    const onTop = (list, hosts, rows = 2) => {
+      let k = 0;
+      for (const f of hosts) {
+        const t = TYPES[f.type], per = Math.max(1, Math.floor(t.w / 0.36));
+        for (let row = 0; row < rows; row++) for (let i = 0; i < per && k < list.length; i++, k++) {
+          const along = -t.w / 2 + (i + 0.5) * t.w / per, across = rows > 1 ? (row - (rows - 1) / 2) * t.d * 0.5 : 0;
+          const [dx, dz] = rotXZ(along, across, f.rot);
+          put(list[k], f.x - ox + dx, f.z - oz + dz, t.h);
+        }
+      }
+      return k;
+    };
+    const host = (type) => furn.filter(f => f.type === type);
+    if (zone === 'cafeteria') onTop(expand(CAFETERIA_LOOT), [...host('foodcounter'), ...host('table')]);
+    else if (zone === 'snack') onTop([...expand({ icecream: 3, cola: 2 }), ...(r() < 0.5 ? ['cookie'] : [])], host('counter'));
+    else if (zone === 'pharmacy') onTop(expand({ medkit: 4 }), host('medstation'), 1);
+    else if (zone === 'kids') { onTop(expand({ apple: 3 }), host('toybox'), 1); if (r() < 0.5) { const s = floorSpot(); if (s) put('fishcrackers', ...s); } }
+    else if (zone === 'greenhouse') { for (let i = 0; i < 4; i++) { const s = floorSpot(); if (s) put('glass', ...s); } }
+    else if (zone === 'kitchen') onTop(['lemon', 'lemonslice', 'water', 'hotdog', 'cookie', 'pizza'].filter(() => r() < 0.45), host('counter'));
+    else if (zone === 'infobooth') { if (r() < 0.35) onTop(['chocolate'], host('infodesk'), 1); }
+    else if (zone === 'warehouse') { const s = floorSpot(); if (s) put('crowbar', ...s); }
+    if (zone === 'dining' && r() < 0.06) onTop(['cake'], host('table'), 1);
+    // scattered crafting materials / improvised tools (this game's extras)
+    const n = (r() * 3) | 0;
+    for (let i = 0; i < n; i++) { const s = floorSpot(); if (s) put(ITEM_POOL[(r() * ITEM_POOL.length) | 0], ...s); }
     return { cx, cz, zone, furn, items };
   }
 
@@ -249,7 +330,7 @@ export class World {
   collide(pos, rad, y = 0, boxes = null) {
     boxes = boxes || this.boxesNear(pos.x, pos.z);
     for (let iter = 0; iter < 2; iter++) for (const b of boxes) {
-      if (b.walk || b.h <= y + 0.45) continue;
+      if (b.walk || b.h <= y + 0.45 || b.y0 >= y + 1.75) continue;
       const cx = Math.max(b.x0, Math.min(pos.x, b.x1)), cz = Math.max(b.z0, Math.min(pos.z, b.z1));
       const dx = pos.x - cx, dz = pos.z - cz, d2 = dx * dx + dz * dz;
       if (d2 >= rad * rad) continue;
@@ -273,7 +354,20 @@ export class World {
     return !this.boxesNear(x, z).some(b => !b.walk && x > b.x0 - rad && x < b.x1 + rad && z > b.z0 - rad && z < b.z1 + rad);
   }
   canPlace(box, ignoreId = null) {
-    return !this.boxesNear((box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2).some(b => b.f.id !== ignoreId && !b.walk && !box.walk && overlap(b, box, -0.02));
+    if (box.h > CEIL + 0.01) return false;
+    return !this.boxesNear((box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2).some(b => b.f.id !== ignoreId && !b.walk && !box.walk && overlap(b, box, -0.02) && b.h > box.y0 + 0.02 && b.y0 < box.h - 0.02);
+  }
+  // Height a piece would rest at if dropped here: on top of the highest thing under its footprint (stacking / building up).
+  stackY(box, ignoreId = null) {
+    let y = 0;
+    if (box.walk) return 0;
+    for (const b of this.boxesNear((box.x0 + box.x1) / 2, (box.z0 + box.z1) / 2)) if (b.f.id !== ignoreId && !b.walk && overlap(b, box, -0.05)) y = Math.max(y, b.h);
+    return Math.round(y * 100) / 100;
+  }
+  // Is something resting on top of this box?
+  supports(box) {
+    for (const p of this.placed.values()) if (p.box !== box && !p.box.walk && overlap(p.box, box, -0.05) && Math.abs(p.box.y0 - box.h) < 0.05) return true;
+    return false;
   }
 
   // ---- navigation (1m grid) ----
@@ -295,7 +389,7 @@ export class World {
     const cx = Math.floor(ix / CHUNK), cz = Math.floor(iz / CHUNK);
     if (this.navGrid(cx, cz)[(iz - cz * CHUNK) * CHUNK + (ix - cx * CHUNK)]) return Infinity;
     const s = this.placedCells.get(ix + ',' + iz);
-    if (s) { for (const id of s) if (this.placed.get(id)?.type !== 'barricade') return Infinity; return 12; }
+    if (s) { let blocked = false; for (const id of s) { const o = this.placed.get(id); if (!o || (o.y || 0) >= 1.8) continue; if (o.type !== 'barricade') return Infinity; blocked = true; } if (blocked) return 12; }
     return 1;
   }
   lineClear(x0, z0, x1, z1) {

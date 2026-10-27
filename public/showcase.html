@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TYPES, worldParts } from '/shared/world.js';
-import { partsGroup, makeHuman, makeEmployee, animate, nameLabel, floorTex } from '/js/models.js';
+import { partsGroup, makeHuman, makeEmployee, animate, nameLabel, floorTex, setCarry } from '/js/models.js';
 const Q = new URLSearchParams(location.search);
 const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(1); R.setSize(innerWidth, innerHeight);
 R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(R.domElement);
@@ -43,15 +43,17 @@ if (!Q.has('chars')) {
 } else {
   const night = Q.has('night'), pose = Q.get('pose') || 'idle';
   const people = [
-    [makeHuman({ shirt: 0x3b6fd6, pants: 0x2c3e66, skin: 0xf0c8a0, hair: 0x3b2a1e }), 'Player'],
+    [makeHuman({ shirt: 0x3b6fd6, pants: 0x2c3e66, skin: 0xf2cf6b, hair: 0x3b2a1e, hairStyle: 0 }), 'Player'],
+    [makeHuman({ shirt: 0x2f9e5a, pants: 0x3a3a3a, skin: 0xf0c8a0, hairStyle: 2 }), 'Player'],
     [makeHuman({ shirt: 0xd04a3a, pants: 0x34352f, skin: 0x8d5a3b, hair: 0x111111, hairStyle: 1 }), 'Player'],
     [makeEmployee('staff'), 'Staff'], [makeEmployee('runner'), 'Runner'], [makeEmployee('giant'), 'Giant'],
   ];
   people.forEach(([h, n], i) => {
-    h.g.position.set((i - 2) * 1.35, 0, 0); scene.add(h.g);
-    const st = { moving: pose === 'walk' || pose === 'run', speed: pose === 'run' ? 1.5 : 1, air: pose === 'jump', hostile: night && h.npc, emote: ['wave', 'sit', 'dance', 'point', 'cheer'].includes(pose) ? pose : null };
+    const X = [-5.6, -3.9, -2.2, -0.5, 1.2, 3.5][i]; h.g.position.set(X, 0, 0); scene.add(h.g);
+    if (pose === 'carry') setCarry(h, 'chair', () => partsGroup(worldParts({ type: 'chair', x: 0, z: 0, rot: 0, c: 7 })));
+    const st = { moving: pose === 'walk' || pose === 'run', speed: pose === 'run' ? 1.5 : 1, air: pose === 'jump', sleeping: pose === 'sleep', down: pose === 'down', hostile: night && h.npc, emote: ['wave', 'sit', 'dance', 'point', 'cheer'].includes(pose) ? pose : null };
     rigs.push([h, st]);
-    if (!Q.has('nolabels')) label(n, (i - 2) * 1.35, 2.95, 0);
+    if (!Q.has('nolabels')) label(n, X, h.labelY, 0);
   });
   cam.position.set(1.2, 1.7, 7.2); window.__center = [0, 1.05, 0];
 }

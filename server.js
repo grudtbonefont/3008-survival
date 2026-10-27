@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Server } from 'socket.io';
-import { World, VERSION, CHUNK, ITEMS, TYPES, FISTS, RECIPES, CYCLE, DAY, isNight, levelOf, aabb } from './shared/world.js';
+import { World, VERSION, CHUNK, ITEMS, TYPES, FISTS, RECIPES, CYCLE, DAY, isNight, levelOf, aabb, dayInfo } from './shared/world.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ALLOW_DEBUG = process.env.ALLOW_DEBUG === '1';
@@ -35,7 +35,7 @@ const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three')));
-app.get('/health', (_q, s) => s.json({ ok: true, version: VERSION, players: players.size, npcs: npcs.size, day: dayNum(), night: isNight(tNow()) }));
+app.get('/health', (_q, s) => { const i = info(); s.json({ ok: true, version: VERSION, players: players.size, npcs: npcs.size, day: dayNum(), weekday: i.weekday, night: isNight(tNow()), foggy: i.fog, bloodNight: i.blood }); });
 app.get('/debug/time', (q, s) => { if (!ALLOW_DEBUG) return s.status(403).send('debug disabled'); setTime(+q.query.t || 0); s.send('t=' + tNow().toFixed(1)); });
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -47,6 +47,7 @@ const worldSec = () => (Date.now() - START) / 1000 + timeOffset;
 const tNow = () => ((worldSec() % CYCLE) + CYCLE) % CYCLE;
 const dayNum = () => Math.floor(worldSec() / CYCLE) + 1;
 function setTime(t) { timeOffset += ((t % CYCLE) + CYCLE) % CYCLE - tNow(); }
+const info = () => dayInfo(SEED, dayNum());
 
 // ---------- state ----------
 const players = new Map(), npcs = new Map(), picked = new Map(), drops = new Map(), parties = new Map(), invites = new Map();
@@ -61,7 +62,7 @@ const NPC_TYPES = {
 const clean = (s, n) => String(s ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.z - b.z) ** 2;
-const pubPlaced = (p) => ({ id: p.id, type: p.type, x: p.x, z: p.z, rot: p.rot, c: p.c, owner: p.owner, ownerName: p.ownerName, hp: p.hp, locked: p.locked });
+const pubPlaced = (p) => ({ id: p.id, type: p.type, x: p.x, z: p.z, rot: p.rot, c: p.c, owner: p.owner, ownerName: p.ownerName, hp: p.hp, locked: p.locked, ...(p.y ? { y: p.y } : {}) });
 const sock = (p) => io.sockets.sockets.get(p.id);
 const feed = (text) => io.emit('feed', text);
 const sameParty = (a, b) => a.party && a.party === b.party;
@@ -125,17 +126,17 @@ function handleCommand(p, text) {
   const [cmd, ...args] = text.slice(1).split(/\s+/); const s = sock(p);
   const sys = (t) => s?.emit('chat', { sys: true, text: t });
   switch (cmd.toLowerCase()) {
-    case 'help': sys('Commands: /pvp, /party invite <name>, /party accept, /party leave, /me <action>, /stuck' + (ALLOW_DEBUG ? ', /time day|night' : '')); break;
+    case 'help': sys('Commands: /pvp, /team (or /party) invite <name>, /team accept, /team leave, /me <action>, /stuck' + (ALLOW_DEBUG ? ', /time day|night' : '')); break;
     case 'pvp': p.pvp = !p.pvp; sys(`PvP ${p.pvp ? 'ON — you can hit and be hit by other PvP players' : 'OFF'}`); sendStats(p); break;
     case 'me': io.emit('chat', { sys: true, text: `* ${p.name} ${clean(args.join(' '), 100)}` }); break;
     case 'stuck': if (!p.dead) { const sp = findSpawn(p.x, p.z, 20); p.x = sp.x; p.z = sp.z; p.y = 0; s.emit('teleport', { x: p.x, y: 0, z: p.z }); } break;
     case 'time': if (ALLOW_DEBUG) { setTime(args[0] === 'night' ? DAY + 1 : args[0] === 'day' ? 1 : +args[0] || 0); sys('Time set'); } else sys('Debug disabled'); break;
-    case 'party': {
+    case 'team': case 'party': {
       const sub = (args[0] || '').toLowerCase();
       if (sub === 'invite') {
         const q = [...players.values()].find(x => x.name.toLowerCase() === (args[1] || '').toLowerCase());
         if (!q || q === p) return sys('Player not found');
-        invites.set(q.id, p.id); sock(q)?.emit('chat', { sys: true, text: `${p.name} invited you to a party. Type /party accept` }); sys(`Invited ${q.name}`);
+        invites.set(q.id, p.id); sock(q)?.emit('chat', { sys: true, text: `${p.name} invited you to their team. Type /team accept` }); sys(`Invited ${q.name}`);
       } else if (sub === 'accept') {
         const from = players.get(invites.get(p.id)); invites.delete(p.id);
         if (!from) return sys('No pending invite');
@@ -144,7 +145,7 @@ function handleCommand(p, text) {
         p.party = from.party; parties.get(p.party).add(p.id);
         for (const id of parties.get(p.party)) { const q = players.get(id); msg(q, `${p.name} joined the party`); sendStats(q); }
       } else if (sub === 'leave') leaveParty(p);
-      else sys('Party: ' + (statsOf(p).party.join(', ') || 'none') + '  (/party invite <name>)');
+      else sys('Team: ' + (statsOf(p).party.join(', ') || 'none') + '  (/team invite <name>)');
       break;
     }
     default: sys('Unknown command. /help');
@@ -160,9 +161,9 @@ io.on('connection', (s) => {
     const sp = findSpawn();
     const p = { id: s.id, name, x: sp.x, y: 0, z: sp.z, ry: 0, anim: 0, sel: 0, hp: 100, hunger: 100, energy: 100, inv: Array(SLOTS).fill(null), carry: null,
       dead: false, sprint: false, lastAtk: 0, hue: Math.random(), lastMove: Date.now(), sleeping: false, emote: null, emoteUntil: 0, xp: 0, days: 0, kos: 0, pvp: false, party: null };
-    p.inv[0] = { t: 'juice', d: null };
+    p.inv[0] = { t: 'water', d: null };
     players.set(s.id, p);
-    s.emit('init', { id: s.id, name, version: VERSION, seed: SEED, t: tNow(), day: dayNum(), cycle: CYCLE, dayLen: DAY, x: p.x, z: p.z, debug: ALLOW_DEBUG,
+    s.emit('init', { id: s.id, name, version: VERSION, seed: SEED, t: tNow(), day: dayNum(), info: info(), cycle: CYCLE, dayLen: DAY, x: p.x, z: p.z, debug: ALLOW_DEBUG,
       removed: [...world.removed], placed: [...world.placed.values()].map(pubPlaced), picked: [...picked.keys()], drops: [...drops.values()] });
     sendStats(p);
     feed(`${name} wandered into the store`);
@@ -184,7 +185,8 @@ io.on('connection', (s) => {
     const it = id.startsWith('d_') ? drops.get(id) : world.itemById(id);
     if (!it || picked.has(id) || dist2(p, it) > 3.5 ** 2) return;
     if (!giveItem(p, it.type, it.d)) return msg(p, 'Inventory full — press G to drop something');
-    if (id.startsWith('d_')) drops.delete(id); else picked.set(id, Date.now() + ITEM_RESPAWN);
+    // consumables restock on Monday/Friday mornings (like the original); materials and tools respawn on a timer
+    if (id.startsWith('d_')) drops.delete(id); else picked.set(id, ITEMS[it.type]?.cons ? Infinity : Date.now() + ITEM_RESPAWN);
     io.emit('picked', id); s.emit('sfx', 'pickup'); sendStats(p);
   });
 
@@ -193,9 +195,11 @@ io.on('connection', (s) => {
     const def = ITEMS[p.inv[slot].t]; if (!def || def.weapon || def.mat) return;
     if (def.food) p.hunger = Math.min(100, p.hunger + def.food);
     if (def.energy) p.energy = Math.min(100, p.energy + def.energy);
-    if (def.heal) p.hp = Math.min(100, p.hp + def.heal);
-    msg(p, `Used ${def.name}`); s.emit('sfx', def.heal && !def.food ? 'heal' : 'eat');
-    p.inv[slot] = null; addXp(p, 1); sendStats(p);
+    if (def.heal && def.healTime) { p.healLeft = (p.healLeft || 0) + def.heal; p.healRate = def.heal / def.healTime; }
+    else if (def.heal) p.hp = Math.min(100, p.hp + def.heal);
+    msg(p, def.heal < 0 ? `Ouch! The ${def.name} hurt you (${def.heal} HP)` : `Used ${def.name}`); s.emit('sfx', def.heal > 0 && !def.food ? 'heal' : 'eat');
+    p.inv[slot] = null; addXp(p, 1);
+    if (p.hp <= 0) kill(p, `died eating a ${def.name}`); else sendStats(p);
   });
 
   s.on('discard', (slot) => {
@@ -215,7 +219,7 @@ io.on('connection', (s) => {
     let hit = false;
     for (const n of npcs.values()) {
       if (n.down || !inCone(n)) continue;
-      hit = true; n.hp -= w.dmg; n.aggro = now + 40000; n.stun = now + 250;
+      hit = true; n.hp -= w.dmg; n.aggro = now + 40000; n.stun = now + (w.stun || 250);
       n.x += fx * w.kb; n.z += fz * w.kb; world.collide(n, 0.4, 0);
       io.emit('hitfx', { x: n.x, z: n.z, y: 1.6, dmg: w.dmg, npc: n.id });
       if (n.hp <= 0) {
@@ -245,7 +249,8 @@ io.on('connection', (s) => {
     const b = f.box, cx = Math.max(b.x0, Math.min(p.x, b.x1)), cz = Math.max(b.z0, Math.min(p.z, b.z1));
     if ((p.x - cx) ** 2 + (p.z - cz) ** 2 > 3 ** 2) return;
     const claimed = claimBlocks(p, f.x, f.z); if (claimed && f.owner !== p.name) return msg(p, `This area is claimed by ${claimed}`);
-    if (f.locked && f.owner !== p.name) return msg(p, `Locked by ${f.ownerName}`);
+    if (f.locked && f.owner !== p.name) return msg(p, `Anchored by ${f.ownerName}`);
+    if (world.supports(f.box)) return msg(p, 'Something is resting on top of it');
     if (id.startsWith('p_')) { world.removePlaced(id); io.emit('unplaced', id); }
     else { world.markRemoved(id); io.emit('removed', id); }
     p.carry = { type: f.type, c: f.c, hp: f.hp };
@@ -257,25 +262,26 @@ io.on('connection', (s) => {
     const x = Math.round(o.x * 2) / 2, z = Math.round(o.z * 2) / 2, rot = (o.rot | 0) & 3;
     if ((p.x - x) ** 2 + (p.z - z) ** 2 > 6 ** 2) return msg(p, 'Too far to place');
     if (world.placed.size >= MAX_PLACED) return msg(p, 'The store is full of furniture!');
-    const box = aabb({ type: p.carry.type, x, z, rot });
-    if (!world.canPlace(box)) return msg(p, 'Something is in the way');
-    if (Math.abs(p.x - x) < (box.x1 - box.x0) / 2 + 0.35 && Math.abs(p.z - z) < (box.z1 - box.z0) / 2 + 0.35 && !box.walk && p.y < 0.5) return msg(p, 'Step back to place it');
+    const flat = aabb({ type: p.carry.type, x, z, rot }), y = world.stackY(flat), box = aabb({ type: p.carry.type, x, z, rot, y });
+    if (!world.canPlace(box)) return msg(p, box.h > 6 ? 'Too high — that would hit the ceiling' : 'Something is in the way');
+    if (Math.abs(p.x - x) < (box.x1 - box.x0) / 2 + 0.35 && Math.abs(p.z - z) < (box.z1 - box.z0) / 2 + 0.35 && !box.walk && box.y0 < p.y + 1.7 && box.h > p.y + 0.3) return msg(p, 'Step back to place it');
     const claimed = claimBlocks(p, x, z); if (claimed) return msg(p, `This area is claimed by ${claimed}`);
     if (p.carry.type === 'claim') for (const old of [...world.placed.values()]) if (old.type === 'claim' && old.owner === p.name) { world.removePlaced(old.id); io.emit('unplaced', old.id); }
     const t = TYPES[p.carry.type];
-    const obj = world.addPlaced({ id: 'p_' + placedId++, type: p.carry.type, c: p.carry.c, x, z, rot, owner: p.name, ownerName: p.name,
+    const obj = world.addPlaced({ id: 'p_' + placedId++, type: p.carry.type, c: p.carry.c, x, z, rot, ...(y ? { y } : {}), owner: p.name, ownerName: p.name,
       hp: t.hp ? (p.carry.hp || t.hp) : undefined, locked: p.carry.type === 'barricade' });
     p.carry = null; dirty = true; addXp(p, 1);
     io.emit('placed', pubPlaced(obj)); s.emit('sfx', 'place');
-    if (obj.type === 'claim') feed(`🚩 ${p.name} claimed a base`);
+    if (obj.type === 'claim') feed(`🚩 ${p.name} set up a base camp`);
     sendStats(p);
   });
 
   s.on('lock', (id) => {
     const p = P(); const o = typeof id === 'string' && world.placed.get(id);
-    if (!p || !o || o.type !== 'barricade' || dist2(p, o) > 4 ** 2) return;
-    if (o.owner !== p.name) return msg(p, 'Not your barricade');
-    o.locked = !o.locked; dirty = true; io.emit('placedupd', pubPlaced(o)); msg(p, o.locked ? 'Barricade locked' : 'Barricade unlocked');
+    if (!p || !o || dist2(p, o) > 4.5 ** 2) return;
+    if (o.owner !== p.name) return msg(p, `Only ${o.ownerName} can weld this`);
+    // "Anchor / weld": anchored pieces can't be picked up or moved by anyone else (base building)
+    o.locked = !o.locked; dirty = true; io.emit('placedupd', pubPlaced(o)); msg(p, o.locked ? `🔩 ${TYPES[o.type].name} anchored` : `${TYPES[o.type].name} unanchored`);
   });
 
   s.on('craft', (rid) => {
@@ -319,7 +325,7 @@ io.on('connection', (s) => {
     const sp = claim ? findSpawn(claim.x, claim.z, 6) : findSpawn();
     Object.assign(p, { x: sp.x, y: 0, z: sp.z, hp: 100, hunger: 100, energy: 100, dead: false, lastMove: Date.now() });
     s.emit('teleport', { x: p.x, y: 0, z: p.z }); sendStats(p);
-    if (claim) msg(p, 'Respawned at your base');
+    if (claim) msg(p, 'Respawned at your base camp');
   });
 
   s.on('disconnect', () => {
@@ -329,23 +335,38 @@ io.on('connection', (s) => {
 });
 
 // ---------- world clock / announcements ----------
+// Wording follows the original's PA announcements (Day_Cycle page on the SCP-3008 Roblox wiki).
 let lastNight = isNight(tNow()), lastDay = dayNum();
-const DAY_ANN = ['Welcome! Today\'s special: Swedish-style meatballs in the restaurant.', 'Customers are reminded to stay hydrated.', 'Please do not climb on display furniture.',
-  'Lost children can be collected at the… service desk.', 'Have you visited our Kitchens department?', 'The store will close soon. Please proceed to the checkout.', 'Attention: please do not feed the staff.'];
-const NIGHT_ANN = ['The store is closed.', 'Please remain calm.', 'Staff will assist you shortly.', 'There is no exit.'];
+const DAY_ANN = ['Welcome! Today\'s special: meatballs in the Cafeteria.', 'Have you visited the Information Booth?', 'Please do not climb on display furniture.',
+  'Lost children can be collected at the Information Booth.', 'Remember to eat and rest. Energy matters.', 'Please do not feed the staff.'];
+const NIGHT_ANN = ['The store is closed.', 'Please exit the building.', 'Staff will assist you shortly.', 'There is no exit.'];
+const CLOSED_LINE = 'Excuse me, the store is now closed. Please exit the building.';
+function npcSay(text, cap = 6) {
+  let n = 0;
+  for (const e of npcs.values()) { if (e.down || n >= cap) continue; if ([...players.values()].some(p => dist2(p, e) < 30 ** 2)) { io.emit('npcsay', { id: e.id, text }); n++; } }
+}
 setInterval(() => {
-  const t = tNow(), night = isNight(t), d = dayNum();
+  const t = tNow(), night = isNight(t), d = dayNum(), di = info();
   if (night !== lastNight || d !== lastDay) {
-    if (night && !lastNight) { io.emit('announce', { text: `ATTENTION: Day ${d} is over. The store is now CLOSED. Please leave the building.`, kind: 'night' }); }
+    if (night && !lastNight) {
+      io.emit('announce', { text: di.blood ? 'Attention customers: the store is now closed. Please exit the building. Tonight is a BLOOD NIGHT.' : 'Attention customers: the store is now closed. Please exit the building.', kind: di.blood ? 'blood' : 'night' });
+      io.emit('dayinfo', di);
+      npcSay(CLOSED_LINE);
+    }
     if (!night && (lastNight || d !== lastDay)) {
-      io.emit('announce', { text: `Good morning! Day ${d}. The store is now open.`, kind: 'day' });
+      io.emit('dayinfo', di);
+      io.emit('announce', { text: `Good morning! It's ${di.weekday}, Day ${d}. The store is now open.` + (di.fog ? ' Today is a FOGGY DAY — employees remain hostile.' : '') + (di.restock ? ' Shelves have been restocked.' : ''), kind: di.fog ? 'fog' : 'day' });
       for (const p of players.values()) if (!p.dead) { p.days++; addXp(p, 50); msg(p, `You survived the night! (${p.days} total)`); sendStats(p); }
-      for (const n of npcs.values()) if (Math.random() < 0.6) npcs.delete(n.id);
+      // employees that came out at night leave at opening time
+      for (const n of npcs.values()) if (n.night) npcs.delete(n.id);
+      if (di.restock) for (const [id, at] of picked) if (at === Infinity) { picked.delete(id); io.emit('unpicked', id); }
     }
     lastNight = night; lastDay = d;
   }
-  if (!night && Math.random() < 0.01) io.emit('announce', { text: DAY_ANN[(Math.random() * DAY_ANN.length) | 0], kind: 'info' });
+  if (!night && t > DAY - 30 && t <= DAY - 29) io.emit('announce', { text: 'The store will close in 30 seconds. Please proceed to the exit.', kind: 'info' });
+  if (!night && Math.random() < 0.008) io.emit('announce', { text: DAY_ANN[(Math.random() * DAY_ANN.length) | 0], kind: 'info' });
   if (night && Math.random() < 0.006) io.emit('announce', { text: NIGHT_ANN[(Math.random() * NIGHT_ANN.length) | 0], kind: 'creepy' });
+  if (night && Math.random() < 0.05) npcSay(CLOSED_LINE, 2);
   // sleep vote: everyone alive asleep at night -> skip to morning
   const alive = [...players.values()].filter(p => !p.dead);
   if (night && alive.length && alive.every(p => p.sleeping)) { setTime(CYCLE - 0.5); feed('😴 Everyone fell asleep… the night passes.'); }
@@ -356,13 +377,15 @@ setInterval(() => {
   const now = Date.now();
   for (const p of players.values()) {
     if (p.dead) continue;
-    p.hunger = Math.max(0, p.hunger - (p.sprint ? 0.32 : 0.18));
+    // Survival_Guide: hunger runs out in ~25 min; energy drains faster while sprinting; with no energy you can't
+    // sprint and get hungry twice as fast; at 0 hunger you lose health. Energy refills by sleeping or drinks.
+    p.hunger = Math.max(0, p.hunger - 0.067 * (p.energy <= 0 ? 2 : 1));
     if (p.sleeping) p.energy = Math.min(100, p.energy + 5);
-    else p.energy = Math.max(0, p.energy - (p.sprint ? 0.35 : 0.12));
-    if (p.hunger <= 0) p.hp -= 1.5; else if (p.hunger > 60 && p.hp < 100) p.hp = Math.min(100, p.hp + (p.sleeping ? 1.5 : 0.4));
-    if (p.energy <= 0) p.hp -= 0.5;
+    else p.energy = Math.max(0, p.energy - (p.sprint && p.energy > 0 ? 0.4 : 0.16));
+    if (p.healLeft > 0) { const h = Math.min(p.healLeft, p.healRate || 15); p.hp = Math.min(100, p.hp + h); p.healLeft -= h; }
+    if (p.hunger <= 0) p.hp -= 1; else if (p.hunger > 50 && p.energy > 0 && p.hp < 100) p.hp = Math.min(100, p.hp + (p.sleeping ? 1.5 : 0.3));
     if (p.emoteUntil && now > p.emoteUntil) { p.emote = null; p.emoteUntil = 0; }
-    if (p.hp <= 0) kill(p, p.hunger <= 0 ? 'starved to death' : 'collapsed from exhaustion');
+    if (p.hp <= 0) kill(p, 'starved to death');
     sendStats(p);
   }
   for (const [id, at] of picked) if (now > at) { picked.delete(id); io.emit('unpicked', id); }
@@ -376,16 +399,16 @@ setInterval(() => {
 
 // ---------- NPC simulation (10 Hz) ----------
 const TICK = 0.1;
-function spawnGroup(p, night) {
+function spawnGroup(p, night, di) {
   const a = Math.random() * Math.PI * 2, d = 28 + Math.random() * 18;
   const cx = p.x + Math.cos(a) * d, cz = p.z + Math.sin(a) * d;
-  const size = night ? 2 + ((Math.random() * 3) | 0) : 1, group = npcId;
+  const size = night ? 2 + ((Math.random() * 3) | 0) + (di.blood ? 2 : 0) : di.fog ? 2 : 1, group = npcId;
   for (let i = 0; i < size; i++) {
     const x = cx + (Math.random() - 0.5) * 4, z = cz + (Math.random() - 0.5) * 4;
     if (!world.isFree(x, z, 0.6)) continue;
     const r = Math.random(), type = !night ? 'staff' : r < 0.6 ? 'staff' : r < 0.85 ? 'runner' : 'giant';
     const id = npcId++;
-    npcs.set(id, { id, type, x, z, ry: 0, hp: NPC_TYPES[type].hp, dir: Math.random() * 6.28, moving: 0, atk: 0, aggro: 0, group, flank: (Math.random() - 0.5) * 2.4, path: null, pathAt: 0, down: 0 });
+    npcs.set(id, { id, type, night, x, z, ry: 0, hp: NPC_TYPES[type].hp, dir: Math.random() * 6.28, moving: 0, atk: 0, aggro: 0, group, flank: (Math.random() - 0.5) * 2.4, path: null, pathAt: 0, down: 0 });
   }
 }
 function stepToward(n, tx, tz, speed) {
@@ -393,11 +416,17 @@ function stepToward(n, tx, tz, speed) {
   n.x += dx / d * sp; n.z += dz / d * sp; world.collide(n, 0.4, 0); n.ry = Math.atan2(dx, dz);
 }
 setInterval(() => {
-  const now = Date.now(), night = isNight(tNow()), hunt = night && tNow() - DAY > 20; // 20 s grace after closing
+  const now = Date.now(), t0 = tNow(), night = isNight(t0), di = info();
+  // Employees turn hostile once the store has been closed for a moment; on a Foggy Day they never stop hunting.
+  const hunt = (night && t0 - DAY > 20) || (di.fog && t0 > 10);
+  const blood = night && di.blood, fog = di.fog && !night;
+  const detect = blood ? 40 : fog ? 14 : 22, giveUp = blood ? 70 : 45;
+  const spdMul = blood ? 1.5 : 1, cdMul = blood ? 0.5 : 1;
   const alive = [...players.values()].filter(p => !p.dead);
   for (const p of alive) {
     let near = 0; for (const n of npcs.values()) if (dist2(n, p) < 55 ** 2) near++;
-    if (near < (night ? 7 : 2) && npcs.size < 40 + players.size * 8 && Math.random() < (night ? 0.08 : 0.03)) spawnGroup(p, night);
+    const want = night ? (blood ? 11 : 7) : fog ? 5 : 2;
+    if (near < want && npcs.size < 40 + players.size * 10 && Math.random() < (night || fog ? 0.08 : 0.03)) spawnGroup(p, night || fog, di);
   }
   for (const n of npcs.values()) {
     const T = NPC_TYPES[n.type];
@@ -406,7 +435,9 @@ setInterval(() => {
     if (!best || bd > 110 ** 2) { npcs.delete(n.id); continue; }
     if (n.down) { if (now > n.down) { n.down = 0; n.hp = T.hp * 0.6; n.aggro = now + 20000; } n.moving = 0; continue; }
     if (n.stun > now) { n.moving = 0; continue; }
-    const hostile = hunt || n.aggro > now;
+    // detection: employees notice survivors inside their sight range and give up once they are far enough away
+    if (hunt) { if (bd < detect ** 2) n.chase = best.id; else if (bd > giveUp ** 2) n.chase = null; } else n.chase = null;
+    const hostile = (hunt && n.chase) || n.aggro > now;
     const ox = n.x, oz = n.z;
     if (hostile && bd < 100 ** 2) {
       const d = Math.sqrt(bd);
@@ -414,16 +445,17 @@ setInterval(() => {
       const side = d > 6 ? n.flank : 0, ang = Math.atan2(best.x - n.x, best.z - n.z) + Math.PI / 2;
       const tx = best.x + Math.sin(ang) * side, tz = best.z + Math.cos(ang) * side;
       if (d > T.reach * 0.8) {
-        if (d < 45 && world.lineClear(n.x, n.z, tx, tz)) { n.path = null; stepToward(n, tx, tz, T.speed); }
+        const spd = T.speed * spdMul;
+        if (d < 45 && world.lineClear(n.x, n.z, tx, tz)) { n.path = null; stepToward(n, tx, tz, spd); }
         else {
           if (!n.path || now - n.pathAt > 900 + Math.random() * 400 || !n.path.length) {
             n.path = world.findPath(n.x, n.z, best.x, best.z, d < 40 ? 2500 : 1200); n.pathAt = now;
           }
           if (n.path.length) {
             const [wx, wz] = n.path[0];
-            stepToward(n, wx, wz, T.speed);
+            stepToward(n, wx, wz, spd);
             if (Math.hypot(wx - n.x, wz - n.z) < 0.45) n.path.shift();
-          } else stepToward(n, best.x, best.z, T.speed);
+          } else stepToward(n, best.x, best.z, spd);
         }
       } else n.ry = Math.atan2(best.x - n.x, best.z - n.z);
       // stuck against a barricade -> smash it
@@ -440,11 +472,13 @@ setInterval(() => {
           }
         }
       } else n.stuck = 0;
-      const reachY = n.type === 'giant' ? 2.4 : 1.6;
-      if (d < T.reach && best.y < reachY && now - n.atk > (n.type === 'runner' ? 700 : 1100)) {
-        n.atk = now; best.hp -= T.dmg; best.sleeping = false;
+      const reachY = (n.type === 'giant' ? 3.0 : 1.6) + (blood ? 1.2 : 0);
+      if (d < T.reach && best.y < reachY && now - n.atk > (n.type === 'runner' ? 700 : 1100) * cdMul) {
+        // damage: 7-13 normally (giants hit harder), x0.75 on a Blood Night, very heavy in Foggy Day fog
+        const base = fog ? 30 + Math.random() * 10 : 7 + Math.random() * 6, dmg = Math.round(base * (n.type === 'giant' ? 2 : n.type === 'runner' ? 0.7 : 1) * (blood ? 0.75 : 1));
+        n.atk = now; best.hp -= dmg; best.sleeping = false;
         const k = n.type === 'giant' ? 3 : 1;
-        sock(best)?.emit('knock', { dx: Math.sin(n.ry) * k, dz: Math.cos(n.ry) * k, dmg: T.dmg }); io.emit('npcatk', n.id);
+        sock(best)?.emit('knock', { dx: Math.sin(n.ry) * k, dz: Math.cos(n.ry) * k, dmg }); io.emit('npcatk', n.id);
         if (best.hp <= 0) kill(best, `was caught by a ${T.name}`);
         sendStats(best);
       }
@@ -463,7 +497,7 @@ setInterval(() => {
   const t = tNow(), day = dayNum();
   const plist = [...players.values()].map(p => ({ id: p.id, name: p.name, x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), ry: +p.ry.toFixed(2), anim: p.anim, hue: p.hue,
     held: p.inv[p.sel]?.t || null, carry: p.carry?.type || null, dead: p.dead, sl: p.sleeping, em: p.emote, lv: levelOf(p.xp), pvp: p.pvp, party: p.party }));
-  const nlist = [...npcs.values()].map(n => ({ id: n.id, x: +n.x.toFixed(2), z: +n.z.toFixed(2), ry: +n.ry.toFixed(2), m: n.moving, h: (hunt || n.aggro > now) ? 1 : 0, k: n.type, d: n.down ? 1 : 0 }));
+  const nlist = [...npcs.values()].map(n => ({ id: n.id, x: +n.x.toFixed(2), z: +n.z.toFixed(2), ry: +n.ry.toFixed(2), m: n.moving, h: ((hunt && n.chase) || n.aggro > now) ? 1 : 0, b: blood ? 1 : 0, k: n.type, d: n.down ? 1 : 0 }));
   for (const p of players.values()) {
     const s = sock(p); if (!s) continue;
     s.emit('state', { t, day, players: plist, npcs: nlist.filter(n => (n.x - p.x) ** 2 + (n.z - p.z) ** 2 < 75 ** 2) });

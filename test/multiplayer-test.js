@@ -32,7 +32,7 @@ ok('deterministic world generation identical across clients');
 const zones = new Set(); for (let i = -6; i < 6; i++) for (let j = -6; j < 6; j++) zones.add(wA.chunk(i, j).zone); ok('zones present: ' + [...zones].join(', '));
 const t0 = Date.now(); const pth = wA.findPath(2, 2, 60, 40); ok(`A* path ${pth ? pth.length : 'none'} steps in ${Date.now() - t0} ms`);
 await wait(200);
-if (!statsA || statsA.inv.length !== 8 || statsA.inv[0]?.t !== 'juice') fail('starting inventory ' + JSON.stringify(statsA?.inv)); ok('8-slot object inventory with starter juice');
+if (!statsA || statsA.inv.length !== 8 || statsA.inv[0]?.t !== 'water') fail('starting inventory ' + JSON.stringify(statsA?.inv)); ok('8-slot object inventory with starter water');
 
 let ax = initA.x, az = initA.z;
 async function walkTo(x, z, stop = 0) {
@@ -58,8 +58,8 @@ for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const it of wA.
 await walkTo(item.x, item.z);
 const pkB = once(b, 'picked', id => id === item.id); const stA = once(a, 'stats', s => s.inv.some(x => x?.t === item.type) && s.inv.filter(Boolean).length >= 2);
 a.emit('pickup', item.id); await pkB; await stA; ok(`Alice picked up ${item.type} (${item.id}); Bob notified`);
-// use juice (slot 0)
-const used = once(a, 'stats', s => s.inv[0] === null); a.emit('use', 0); await used; ok('used juice from slot 0');
+// use water (slot 0)
+const used = once(a, 'stats', s => s.inv[0] === null); a.emit('use', 0); await used; ok('used water from slot 0');
 // drop + re-pickup
 const slot = statsA.inv.findIndex(Boolean);
 const dr = once(b, 'drop'); a.emit('discard', slot); const drop = await dr; ok('dropped item ' + drop.type + ' as ' + drop.id);
@@ -76,7 +76,7 @@ await wait(150); if (statsA.carry?.type !== furn.type) fail('carry not set');
 // overlap rejection: try to place onto a pillar
 const pil = wA.chunk(ccx, ccz).furn.find(f => f.type === 'pillar');
 await walkTo(pil.x + 2.5, pil.z + 2.5);
-const bad = once(a, 'msg', m => /in the way|claimed|Step back/.test(m)); a.emit('place', { x: pil.x, z: pil.z, rot: 0 }); await bad; ok('placement overlapping a pillar rejected');
+const bad = once(a, 'msg', m => /in the way|claimed|Step back|Too high/.test(m)); a.emit('place', { x: pil.x, z: pil.z, rot: 0 }); await bad; ok('placement overlapping a pillar rejected');
 let spot = null;
 for (let r = 2; r < 6 && !spot; r += 0.5) for (let k = 0; k < 16 && !spot; k++) { const x = Math.round((ax + Math.cos(k / 16 * 6.283) * r) * 2) / 2, z = Math.round((az + Math.sin(k / 16 * 6.283) * r) * 2) / 2; const bx = aabb({ type: furn.type, x, z, rot: 1 }); if (wA.canPlace(bx) && !(ax > bx.x0 - 0.5 && ax < bx.x1 + 0.5 && az > bx.z0 - 0.5 && az < bx.z1 + 0.5)) spot = { x, z }; }
 const pl = once(b, 'placed'); a.emit('place', { ...spot, rot: 1 }); const po = await pl; ok(`Alice placed ${po.type} as ${po.id} at (${po.x}, ${po.z}), Bob saw it`);
