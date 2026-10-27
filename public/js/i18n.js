@@ -18,10 +18,11 @@ const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a 
 const S = {
   play: ['ВОЙТИ В МАГАЗИН', 'ENTER THE STORE'], name: ['Твоё имя', 'Your name'], sub: ['Бесконечный мебельный магазин. Ночью выходят сотрудники.', 'An endless furniture store. The staff come out at night.'],
   hint: ['Переживи ночи. Построй крепость. Не попадайся им на глаза.', "Survive the nights. Build a fort. Don't let them see you."],
-  avatarBtn: ['🎨 ПЕРСОНАЖ', '🎨 AVATAR'], achBtn: ['🏆 ДОСТИЖЕНИЯ', '🏆 ACHIEVEMENTS'],
+  avatarBtn: ['Персонаж', 'Avatar'], achBtn: ['Достижения', 'Achievements'], settingsT: ['Настройки', 'Settings'],
+  hudMode: ['Интерфейс (H)', 'Interface (H)'], hudFull: ['Полный', 'Full'], hudMin: ['Минимальный HUD', 'Minimal HUD'], hudOff: ['Скрыть HUD', 'Hide HUD'], mapSet: ['Миникарта (N)', 'Minimap (N)'],
   sens: ['Чувствительность мыши', 'Mouse sensitivity'], vol: ['Громкость', 'Volume'], gfx: ['Графика', 'Graphics'], low: ['Низкая (быстро)', 'Low (fast)'], med: ['Средняя', 'Medium'], high: ['Высокая (тени)', 'High (shadows)'],
   invY: ['Инверсия Y', 'Invert Y'], tips: ['Подсказки', 'Show tips'], fps: ['Счётчик FPS', 'FPS counter'], language: ['Язык', 'Language'],
-  paused: ['Пауза', 'Paused'], resume: ['Продолжить', 'Resume'], controls: ['Управление', 'Controls'], close: ['Закрыть', 'Close'], died: ['ТЫ ПОГИБ', 'YOU DIED'], respawn: ['Возродиться', 'Respawn'],
+  paused: ['Пауза', 'Paused'], resume: ['Продолжить', 'Resume'], controls: ['Управление', 'Controls'], close: ['Закрыть', 'Close'], died: ['Ты погиб', 'You died'], respawn: ['Возродиться', 'Respawn'],
   chatPh: ['Напиши что-нибудь… (/help)', 'Say something… (/help)'], board: ['🏆 Выжившие в магазине', '🏆 Store Survivors'], online: ['Онлайн', 'Online'], allTime: ['За всё время (ночей)', 'All-time (most nights)'],
   bName: ['Имя', 'Name'], bLv: ['Ур', 'Lv'], bNights: ['Ночи', 'Nights'], bKos: ['Нокауты', 'KOs'], bBest: ['Рекорд', 'Best'], players: ['Игроки', 'Players'], days: ['Дни', 'Days'],
   inventory: ['🎒 Инвентарь', '🎒 Inventory'], crafting: ['🔨 Крафт', '🔨 Crafting'], chest: ['📦 Сундук', '📦 Chest'],
@@ -31,14 +32,14 @@ const S = {
   placeable: ['ставится в мир', 'placeable'], materials: ['Материалы', 'Materials'], dmg: ['урон', 'dmg'], durab: ['прочность', 'durability'], breakPow: ['ломает мебель ×', 'breaks furniture ×'],
   food_: ['сытость', 'food'], energy_: ['энергия', 'energy'], heal_: ['здоровье', 'health'], matDesc: ['Материал для крафта — добывается из сломанной мебели', 'Crafting material — salvaged from broken furniture'],
   use: ['Использовать', 'Use'], drop: ['Выбросить', 'Drop'], dropOne: ['Выбросить 1', 'Drop 1'], split: ['Разделить', 'Split'], toChest: ['В сундук', 'To chest'], take: ['Взять', 'Take'],
-  carrying: ['Несёшь', 'Carrying'], carryHelp: ['<b>ЛКМ/Q</b> поставить · <b>R</b> повернуть · <b>V</b> высота · <b>колесо+Alt</b> ещё выше', '<b>LMB/Q</b> place · <b>R</b> rotate · <b>V</b> height'],
+  carrying: ['Несёшь', 'Carrying'], carryHelp: ['<b>ЛКМ/Q</b> поставить · <b>R</b> повернуть · <b>V</b> высота', '<b>LMB/Q</b> place · <b>R</b> rotate · <b>V</b> height'],
   pickUp: ['подобрать', 'pick up'], grab: ['взять', 'grab'], hit: ['ломать', 'break'], anchored: ['закреплено', 'anchored'], anchor: ['закрепить', 'anchor'], unanchor: ['открепить', 'unanchor'],
   open: ['открыть', 'open'], closeDoor: ['закрыть', 'close'], sleep: ['спать', 'sleep'], cook: ['готовить', 'cook'], craftHere: ['крафт', 'craft'], sleeping: ['💤 Спишь… <b>Z</b>/движение — проснуться', '💤 Sleeping… <b>Z</b>/move to wake'],
-  day: ['День', 'Day'], night: ['🌙 НОЧЬ', '🌙 NIGHT'], blood: ['🩸 КРОВАВАЯ НОЧЬ', '🩸 BLOOD NIGHT'], fog: ['🌫 ТУМАННЫЙ ДЕНЬ', '🌫 FOGGY DAY'], dayL: ['☀ ДЕНЬ', '☀ DAY'],
+  day: ['День', 'Day'], night: ['Ночь', 'Night'], blood: ['Кровавая ночь', 'Blood night'], fog: ['Туманный день', 'Foggy day'], dayL: ['День', 'Day'],
   opens: ['откроется через', 'opens in'], closes: ['закроется через', 'closes in'], wp: ['Метка', 'Waypoint'], wpCleared: ['Метки удалены', 'Waypoints cleared'],
   wpPlaced: ['Метка поставлена ({n}/4) — Shift+T удалить все', 'Waypoint placed ({n}/4) — Shift+T clears'], nothingAnchor: ['Рядом нет твоей мебели', 'Nothing of yours to anchor nearby'],
   attackLmb: ['Атакуй ЛКМ', 'Attack with LMB'], matUse: ['Материалы — для крафта (C)', 'Use materials in crafting (C)'], disconnected: ['Связь потеряна — переподключение…', 'Disconnected — reconnecting…'],
-  baseCamp: ['⛺ База {n}', "⛺ {n}'s Base Camp"], party: ['👥 Команда: ', '👥 Party: '], pvpOn: ['⚔ PvP ВКЛ', '⚔ PvP ON'], sleepingFlag: ['💤 Спит', '💤 Sleeping'],
+  baseCamp: ['⛺ База {n}', "⛺ {n}'s Base Camp"], party: ['Команда · ', 'Party · '], pvpOn: ['⚔ PvP ВКЛ', '⚔ PvP ON'], sleepingFlag: ['💤 Спит', '💤 Sleeping'],
   nights: ['{n} {w} пережито · {k} нокаутов', '{n} night{s} survived · {k} KOs'], achGot: ['Достижение!', 'Achievement!'], unlocked: ['Открыто на {lv} уровне:', 'Unlocked at level {lv}:'],
   streak: ['🔥 Серия: {n} {d} подряд (+{b} XP)', '🔥 Streak: {n} day{s} in a row (+{b} XP)'], loot: ['+', '+'], achTitle: ['🏆 Достижения', '🏆 Achievements'],
   height: ['Высота: {h} м', 'Height: {h} m'], undoHint: ['<b>Ctrl+Z</b> — забрать последнее поставленное', '<b>Ctrl+Z</b> undo last placement'], streakDays: ['Серия дней', 'Day streak'],
@@ -49,13 +50,15 @@ const S = {
   yourLv: ['Твой уровень: {lv} — новые вещи открываются с уровнем', 'Your level: {lv} — more items unlock as you level up'], locked: ['🔒 Закрыто', '🔒 Locked'],
   fpsL: ['FPS', 'FPS'],
 };
+// 2.5 minimal UI: strip pictographic emoji from every displayed string (icons are SVG now)
+export const noEmo = (s) => typeof s !== 'string' ? s : s.replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, '').replace(/^[\s·]+/, '').replace(/ {2,}/g, ' ');
 export function t(k, vars) {
   const e = S[k]; let s = e ? e[lang === 'ru' ? 0 : 1] : k;
   if (vars) for (const [a, b] of Object.entries(vars)) s = s.split('{' + a + '}').join(b);
-  return s;
+  return noEmo(s);
 }
 export const nightsLabel = (n, k) => lang === 'ru' ? `${n} ${plural(n, 'ночь', 'ночи', 'ночей')} пережито · ${k} нокаутов` : t('nights', { n, s: n === 1 ? '' : 's', k });
-export const streakLabel = (n, b) => lang === 'ru' ? `🔥 Серия: ${n} ${plural(n, 'день', 'дня', 'дней')} подряд (+${b} XP)` : t('streak', { n, s: n === 1 ? '' : 's', b });
+export const streakLabel = (n, b) => lang === 'ru' ? `Серия: ${n} ${plural(n, 'день', 'дня', 'дней')} подряд (+${b} XP)` : t('streak', { n, s: n === 1 ? '' : 's', b });
 
 // ---------- translating server strings (the server speaks English) ----------
 const findItem = (en) => Object.keys(ITEMS).find(k => ITEMS[k].name === en);
@@ -99,7 +102,8 @@ const RX = [
   [/^🚩 (.+) set up a base camp$/, m => `🚩 ${m[1]} основал базу`], [/^🔩 (.+) anchored$/, m => `🔩 ${T(m[1])}: закреплено`], [/^(.+) unanchored$/, m => `${T(m[1])}: откреплено`], [/^Used (.+)$/, m => `Использовано: ${IT(m[1])}`],
   [/^Attention customers: the store is now closed\. Please exit the building\.(.*)$/, m => 'Уважаемые покупатели: магазин закрыт. Пожалуйста, покиньте здание.' + (m[1] ? ' Сегодня КРОВАВАЯ НОЧЬ.' : '')],
 ];
-export function tr(s) {
+export function tr(s) { return noEmo(tr0(s)); }
+function tr0(s) {
   if (lang !== 'ru' || typeof s !== 'string') return s;
   if (EXACT[s]) return EXACT[s];
   const pre = /^(📢 |💤 )/.exec(s); if (pre && EXACT[s.slice(pre[0].length)]) return pre[0] + EXACT[s.slice(pre[0].length)];

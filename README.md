@@ -4,6 +4,13 @@ An original multiplayer survival game you play in the browser. You are trapped i
 
 **Play:** https://three008-survival.onrender.com
 
+## What's new in 2.5: minimalist interface
+- New design system: one neutral font, near-white text, translucent blurred dark panels, a single accent colour, thin lines, no emoji (monochrome inline SVG icons in `public/js/icons.js`).
+- HUD: thin unlabeled bars bottom-left (hidden when full), minimal hotbar, small day/time pill, minimap behind a toggle (**N** / map button), chat fades when idle, short subtle kill feed and toasts, prompts as small text under the crosshair.
+- Interface modes (**H** or Settings): Full / Minimal HUD / Hide HUD.
+- Main menu, pause/settings, avatar editor, inventory/crafting/chest, achievements, leaderboard and death screen restyled. Wave emote moved to **B**.
+- 3D models unchanged.
+
 ## What's new in 2.4: avatar editor, inventory, crafting, destruction
 
 - **Avatar editor** (menu → «Персонаж» or pause menu): live rotating 3D preview with skin, face, hair, hats, glasses/masks, shirt and pants patterns, back accessories and body type, plus colour pickers. It also has Random and Reset buttons. Some items unlock as you level up. The avatar is saved in localStorage, validated on the server and visible to other players.

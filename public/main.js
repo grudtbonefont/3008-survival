@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { World, CHUNK, CEIL, CYCLE, DAY, ITEMS, TYPES, FISTS, RECIPES, ZONES, worldParts, aabb, levelOf, weekday, SLOTS, HOTBAR, stackOf, furnHp, breakable, LOOT } from '/shared/world.js';
 import { Sfx } from '/js/audio.js';
 import { MATS, floorTex, ceilTex, partsGroup, disposeGroup, makeItem, makeHuman, makeEmployee, nameLabel, setHeld, setCarry, animate, unitBox, makeAvatar, humanFromHue, canvasTex } from '/js/models.js';
-import { t, tr, lang, setLang, iname, tname, zname, wd, nm, nightsLabel, streakLabel } from '/js/i18n.js';
+import { t, tr, lang, setLang, iname, tname, zname, wd, nm, nightsLabel, streakLabel, noEmo } from '/js/i18n.js';
+import { svg, itemSvg, carrySvg } from '/js/icons.js';
 import { openEditor, loadAvatar, saveAvatar } from '/js/avatar-editor.js';
 import { ACHIEVEMENTS, ACH } from '/shared/achievements.js';
 import { unlocksAt } from '/shared/avatar.js';
@@ -19,7 +20,7 @@ const QUALITY = {
   med: { radius: 2, pr: 1, shadows: true, lights: 8, shadowSize: 1024, flashShadow: false },
   high: { radius: 2, pr: Math.min(devicePixelRatio, 2), shadows: true, lights: 12, shadowSize: 2048, flashShadow: true },
 };
-const settings = Object.assign({ sens: 1, quality: isTouch ? 'low' : 'med', vol: 0.7, name: '', invertY: false, tips: true, fps: false }, JSON.parse(localStorage.getItem('3008s') || '{}'));
+const settings = Object.assign({ sens: 1, quality: isTouch ? 'low' : 'med', vol: 0.7, name: '', invertY: false, tips: true, fps: false, hud: 'min', map: false }, JSON.parse(localStorage.getItem('3008s') || '{}'));
 const saveSettings = () => localStorage.setItem('3008s', JSON.stringify(settings));
 let Q = QUALITY[settings.quality] || QUALITY.med;
 
@@ -31,6 +32,8 @@ function buildSettings(el) {
   <label>${t('gfx')} <select data-s="quality"><option value="low">${t('low')}</option><option value="med">${t('med')}</option><option value="high">${t('high')}</option></select></label>
   <label>${t('invY')} <input type="checkbox" data-s="invertY"></label>
   <label>${t('tips')} <input type="checkbox" data-s="tips"></label>
+  <label>${t('hudMode')} <select data-s="hud"><option value="full">${t('hudFull')}</option><option value="min">${t('hudMin')}</option><option value="off">${t('hudOff')}</option></select></label>
+  <label>${t('mapSet')} <input type="checkbox" data-s="map"></label>
   <label>${t('fps')} <input type="checkbox" data-s="fps"></label>`;
   const ls = el.querySelector('[data-lang]'); ls.value = lang; ls.onchange = () => applyLang(ls.value);
   el.querySelectorAll('[data-s]').forEach(inp => {
@@ -77,6 +80,7 @@ function applySettings() {
   sfx.setVolume(settings.vol);
   scene.traverse(o => { if (o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
   if (world) for (const ch of chunks.values()) setChunkShadows(ch);
+  if ($('hud')) applyHud();
 }
 
 // ---------------- game state ----------------
@@ -91,9 +95,7 @@ const picked = new Set(), drops = new Map();
 const others = new Map(), npcs = new Map();
 const chunks = new Map(), placedObjs = new Map(), itemMeshes = new Map();
 let boxesCache = [], boxesAt = { x: 1e9, z: 1e9, t: 0 };
-const ICON = { apple: '🍎', banana: '🍌', beans: '🥫', burger: '🍔', chips: '🍟', chocolate: '🍫', cookie: '🍪', fishcrackers: '🐟', hotdog: '🌭', icecream: '🍦', lemon: '🍋', lemonslice: '🍋',
-  meatballs: '🍝', pizza: '🍕', donut: '🍩', cola2l: '🧴', soda: '🥤', cola: '🍾', water: '💧', cake: '🎂', candycorn: '🌽', glass: '🔷', medkit: '💊', meal: '🍲', bandage: '🩹',
-  cloth: '🧶', scrap: '🔩', plank: '🪵', bat: '🏏', pipe: '🔧', crowbar: '🪛', spear: '🔱', nailbat: '🦯' };
+const ICON = new Proxy({}, { get: (_, k) => itemSvg(k) });
 let dinfo = { day: 1, weekday: 'Monday', fog: false, blood: false };
 const waypoints = [];
 const lightObjs = new Map(), avatars = {}, fhp = new Map();
@@ -292,10 +294,10 @@ function connect() {
   socket.on('restored', (id) => { world.unmarkRemoved(id); fhp.delete(id); const ch = chunkOfId(id); if (ch) { rebuildFurn(ch); const f = world.furnById?.(id); if (f) puff(f.x, 0.4, f.z, 0xffffff, 10); } boxesAt.t = 0; });
   socket.on('furnhp', (h) => { fhp.set(h.id, { hp: h.hp, max: h.max }); const ch = chunkOfId(h.id); if (ch) rebuildFurn(ch); const f = world.furnById?.(h.id) || world.placed.get(h.id); if (f) { showHpBar(f, h.hp, h.max); const b = f.box || aabb(f); const sp = spatial({ x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }); sfx.play('crack', sp); chips((b.x0 + b.x1) / 2, Math.min(b.h, 1.4), (b.z0 + b.z1) / 2, matColor(f), 6); } });
   socket.on('broke', (b) => { debris(b); const sp = spatial(b); const m = matOf(b.type); sfx.play(m === 'pane' ? 'shatter' : m === 'scrap' ? 'metal' : 'wood', sp); sfx.play('break', sp); if (Math.hypot(b.x - me.x, b.z - me.z) < 6) shake = Math.max(shake, 0.15); });
-  socket.on('loot', (got) => { for (const g of got) toast(`${ICON[g.t] || '📦'} +${g.n} ${iname(g.t)}`, 'loot'); });
-  socket.on('ach', (id) => { const a = ACH[id]; myAch.add(id); localStorage.setItem('3008ach', JSON.stringify([...myAch])); if (a) { toast(`${a.icon} <b>${t('achGot')}</b> ${esc(nm(a))}<br><small>${esc(lang === 'ru' ? a.dru : a.den)} · +${a.xp} XP</small>`, 'ach', 6000); sfx.play('ach'); } });
-  socket.on('unlock', (u) => { const list = (u.items || []).map(o => nm(o)).join(', '); if (list) toast(`🎁 <b>${t('unlocked', { lv: u.lv })}</b><br><small>${esc(list)}</small>`, 'unlock', 7000); });
-  socket.on('streak', (k) => { myStreak = k.n; localStorage.setItem('3008streak', k.n); toast(streakLabel(k.n, k.bonus), 'streak', 6000); });
+  socket.on('loot', (got) => { for (const g of got) toast(`${ICON[g.t]}<span>+${g.n} ${esc(iname(g.t))}</span>`, 'loot', 2200); });
+  socket.on('ach', (id) => { const a = ACH[id]; myAch.add(id); localStorage.setItem('3008ach', JSON.stringify([...myAch])); if (a) { toast(`${achIc(a)}<span><b>${esc(nm(a))}</b><small>${t('achGot')} · +${a.xp} XP</small></span>`, 'ach', 4000); sfx.play('ach'); } });
+  socket.on('unlock', (u) => { const list = (u.items || []).map(o => nm(o)).join(', '); if (list) toast(`${svg('gift', 16)}<span><b>${t('unlocked', { lv: u.lv })}</b><small>${esc(list)}</small></span>`, 'unlock', 4500); });
+  socket.on('streak', (k) => { myStreak = k.n; localStorage.setItem('3008streak', k.n); toast(`${svg('fire', 16)}<span>${esc(streakLabel(k.n, k.bonus))}</span>`, 'streak', 4000); });
   socket.on('avatar', (a) => { avatars[a.id] = a.av; if (a.id === myId) { rebuildMe(a.av); saveAvatar(a.av); } else rebuildOther(a.id); });
   socket.on('chest', (c) => { chestData = c; if (c) { invTab = 'chest'; openInv(); } else if (invTab === 'chest') { invTab = 'craft'; if (invOpen) renderInv(); } });
   socket.on('sfxat', (a) => sfx.play(a.k, spatial(a)));
@@ -327,43 +329,43 @@ function spatial(p) {
 }
 
 // ---------------- HUD ----------------
-function setBar(cls, v) { const b = document.querySelector('.bar.' + cls); b.querySelector('i').style.width = Math.max(0, v) + '%'; b.querySelector('em').textContent = Math.max(0, Math.round(v)); b.classList.toggle('low', v < 20); }
+function setBar(cls, v) { const b = document.querySelector('.bar.' + cls); b.querySelector('i').style.width = Math.max(0, v) + '%'; b.querySelector('em').textContent = Math.max(0, Math.round(v)); b.classList.toggle('low', v < 20); b.classList.toggle('full', v >= 99.5); }
 function updateHud() {
   setBar('hp', stats.hp); setBar('food', stats.hunger); setBar('energy', stats.energy);
   const lv = stats.lv || 1, a = 40 * (lv - 1) ** 2, b = 40 * lv ** 2;
-  $('lvNum').textContent = `${lang === 'ru' ? 'Ур.' : 'Lv'} ${lv}  ·  ${stats.xp} XP`; lastLv = lv; localStorage.setItem('3008lv', lv); $('xpBar').firstElementChild.style.width = ((stats.xp - a) / (b - a) * 100) + '%';
-  $('daysLabel').textContent = nightsLabel(stats.days, stats.kos) + (myStreak > 1 ? ` · 🔥${myStreak}` : '');
+  $('lvNum').textContent = `${lang === 'ru' ? 'Ур.' : 'Lv'} ${lv}`; $('level').title = `${stats.xp} XP`; lastLv = lv; localStorage.setItem('3008lv', lv); $('xpBar').firstElementChild.style.width = ((stats.xp - a) / (b - a) * 100) + '%';
+  $('daysLabel').textContent = nightsLabel(stats.days, stats.kos) + (myStreak > 1 ? ` · ${t('streakDays').toLowerCase()} ${myStreak}` : '');
   $('party').textContent = stats.party?.length ? t('party') + stats.party.join(', ') : '';
-  $('flags').innerHTML = (stats.pvp ? `<span>${t('pvpOn')}</span>` : '') + (stats.sleeping ? `<span style="background:#2c3e66">${t('sleepingFlag')}</span>` : '');
+  $('flags').innerHTML = (stats.pvp ? `<span class="pvp">${t('pvpOn')}</span>` : '') + (stats.sleeping ? `<span>${t('sleepingFlag')}</span>` : '');
   const c = stats.carry;
   $('carryInfo').style.display = c ? 'block' : 'none';
-  if (c) $('carryInfo').innerHTML = `${t('carrying')} <b>${esc(tname(c.type))}</b> — ${t('carryHelp')}<br><small>${t('undoHint')}</small>`;
+  if (c) $('carryInfo').innerHTML = `${CARRY_ICON[c.type]}<b>${esc(tname(c.type))}</b><small>${t('carryHelp')}</small>`;
 }
 function updateHotbar() {
   const hb = $('hotbar'); hb.innerHTML = '';
   for (let i = 0; i < 8; i++) {
     const it = stats.inv?.[i], d = document.createElement('div'); d.className = 'slot' + (i === sel ? ' sel' : '');
-    d.innerHTML = `<small>${i + 1}</small>${it ? ICON[it.t] || '❔' : ''}` + (it && it.d != null ? `<div class="dur"><i style="width:${it.d / ITEMS[it.t].dur * 100}%;background:${it.d / ITEMS[it.t].dur < 0.25 ? '#e74c3c' : '#2ecc71'}"></i></div>` : '');
+    d.innerHTML = `<small>${i + 1}</small>${it ? ICON[it.t] : ''}` + (it && it.d != null ? `<div class="dur${it.d / ITEMS[it.t].dur < 0.25 ? ' low' : ''}"><i style="width:${it.d / ITEMS[it.t].dur * 100}%"></i></div>` : '');
     if (it && it.n > 1) d.innerHTML += `<b class="cnt">${it.n}</b>`;
     d.title = it ? iname(it.t) : t('empty');
     d.onclick = () => { sel = i; updateHotbar(); };
     hb.appendChild(d);
   }
   const it = stats.inv?.[sel];
-  if (it) showMsg(iname(it.t) + (ITEMS[it.t].weapon ? ` — ${ITEMS[it.t].dmg} ${t('dmg')}` : ITEMS[it.t].mat ? ' — ' + t('materials').toLowerCase() : ' — ' + (lang === 'ru' ? 'ПКМ/X — использовать' : 'RMB/X to use')), 1200, true);
+  if (it) showMsg(iname(it.t), 1100, true);
 }
 let msgTimer;
-function showMsg(t, ms = 2500, soft) { const m = $('msg'); m.textContent = t; m.style.opacity = soft ? 0.75 : 1; clearTimeout(msgTimer); msgTimer = setTimeout(() => (m.style.opacity = 0), ms); }
+function showMsg(t, ms = 2500, soft) { const m = $('msg'); m.textContent = noEmo(t); m.style.opacity = soft ? 0.75 : 1; clearTimeout(msgTimer); msgTimer = setTimeout(() => (m.style.opacity = 0), ms); }
 let annTimer;
 function announce(a) {
-  const el = $('announce'); el.textContent = '📢 ' + a.text; el.className = 'show ' + (a.kind || '');
-  clearTimeout(annTimer); annTimer = setTimeout(() => (el.className = ''), 7000);
+  const el = $('announce'); el.textContent = noEmo(a.text); el.className = 'show ' + (a.kind || '');
+  clearTimeout(annTimer); annTimer = setTimeout(() => (el.className = ''), 4500);
   if (a.kind === 'night') { sfx.play('alarm'); bigText(`${t('night')} ${dayN}`, 'night'); }
   else if (a.kind === 'blood') { sfx.play('alarm'); bigText(t('blood'), 'night'); }
   else if (a.kind === 'fog') { sfx.play('chime'); bigText(t('fog'), 'fog'); }
   else if (a.kind === 'day') { sfx.play('chime'); bigText(`${t('day').toUpperCase()} ${dayN} · ${wd(weekday(dayN)).toUpperCase()}`, ''); }
   else sfx.play(a.kind === 'creepy' ? 'creak' : 'chime', { gain: 0.5 });
-  addChat({ sys: true, text: '📢 ' + a.text });
+  addChat({ sys: true, text: noEmo(a.text) });
 }
 function npcSay(m) {
   const o = npcs.get(m.id); if (!o) return;
@@ -376,16 +378,31 @@ function npcSay(m) {
     try { const u = new SpeechSynthesisUtterance(m.text); u.lang = lang === 'ru' ? 'ru-RU' : 'en-US'; u.rate = 0.85; u.pitch = 0.3; u.volume = Math.min(1, settings.vol * sp.gain); speechSynthesis.speak(u); } catch { /* no TTS */ }
   }
 }
-function bigText(t, cls) { const b = $('bigDay'); b.textContent = t; b.className = 'show ' + cls; setTimeout(() => (b.className = cls), 3500); }
+function bigText(t, cls) { const b = $('bigDay'); b.textContent = t; b.className = 'show ' + cls; setTimeout(() => (b.className = cls), 2600); }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function addChat(c) {
   const d = document.createElement('div');
-  if (c.sys) { d.className = 'sys'; d.textContent = c.text; }
-  else { if (c.party && c.party === myParty()) d.className = 'pt'; d.innerHTML = `<b style="color:#f5c518">[${c.lv}] ${esc(c.name)}:</b> ${esc(c.text)}`; }
-  const log = $('chatLog'); log.appendChild(d); while (log.children.length > 9) log.firstChild.remove();
-  setTimeout(() => d.style.opacity = chatOpen ? 1 : 0.35, 12000);
+  if (c.sys) { d.className = 'sys'; d.textContent = noEmo(c.text); }
+  else { if (c.party && c.party === myParty()) d.className = 'pt'; d.innerHTML = `<b>${esc(c.name)}</b> ${esc(c.text)}`; }
+  const log = $('chatLog'); log.appendChild(d); while (log.children.length > 7) log.firstChild.remove();
+  chatPing();
 }
-function addFeed(t) { const d = document.createElement('div'); d.textContent = t; const f = $('feed'); f.prepend(d); while (f.children.length > 6) f.lastChild.remove(); setTimeout(() => d.remove(), 12000); }
+function addFeed(t) { const d = document.createElement('div'); d.textContent = noEmo(t); const f = $('feed'); f.prepend(d); while (f.children.length > 3) f.lastChild.remove(); setTimeout(() => d.classList.add('out'), 5000); setTimeout(() => d.remove(), 5600); }
+// chat stays visible for a few seconds after a new line, then fades out until Enter is pressed
+let chatIdle;
+function chatPing() { const c = $('chat'); c.classList.add('active'); clearTimeout(chatIdle); chatIdle = setTimeout(() => { if (!chatOpen) c.classList.remove('active'); }, 8000); }
+// HUD modes: full / min / off (H cycles); minimap toggle (N)
+function applyHud() {
+  const m = settings.hud || 'min'; const h = $('hud');
+  h.classList.toggle('hud-full', m === 'full'); h.classList.toggle('hud-min', m === 'min'); h.classList.toggle('hud-off', m === 'off');
+  h.classList.toggle('map-on', !!settings.map || m === 'full');
+  $('fps').style.display = settings.fps ? 'block' : 'none';
+}
+function cycleHud() {
+  settings.hud = { full: 'min', min: 'off', off: 'full' }[settings.hud] || 'min'; saveSettings(); applyHud();
+  document.querySelectorAll('.settings').forEach(buildSettings);
+  const hh = $('hudHint'); hh.textContent = `HUD · ${t({ full: 'hudFull', min: 'hudMin', off: 'hudOff' }[settings.hud])}`; hh.classList.add('show'); clearTimeout(hh._t); hh._t = setTimeout(() => hh.classList.remove('show'), 1400);
+}
 function hurtFlash() { const f = $('dmgflash'); f.style.transition = 'none'; f.style.opacity = 1; requestAnimationFrame(() => { f.style.transition = 'opacity .6s'; f.style.opacity = 0; }); }
 function dmgNumber(h) {
   const v = new THREE.Vector3(h.x, h.y || 1.6, h.z).project(camera);
@@ -400,11 +417,12 @@ function dmgNumber(h) {
 function renderBoard(b) {
   lastBoard = b;
   $('plist').innerHTML = `<div class="ph"><span>${t('players')}</span><span>${t('days')}</span><span>${t('bLv')}</span></div>` + b.online.slice(0, 12).map(p => `<div class="pr${p.name === myName ? ' me' : ''}${p.party && p.party === myParty() ? ' tm' : ''}"><span>${esc(p.name)}</span><span>${p.days}</span><span>${p.lv}</span></div>`).join('');
-  $('onlineT').innerHTML = `<tr><th>${t('bName')}</th><th>${t('bLv')}</th><th>${t('bNights')}</th><th>${t('bKos')}</th></tr>` + b.online.map(p => `<tr><td>${esc(p.name)}${p.party ? ' 👥' : ''}</td><td>${p.lv}</td><td>${p.days}</td><td>${p.kos}</td></tr>`).join('');
+  $('onlineT').innerHTML = `<tr><th>${t('bName')}</th><th>${t('bLv')}</th><th>${t('bNights')}</th><th>${t('bKos')}</th></tr>` + b.online.map(p => `<tr><td>${esc(p.name)}${p.party ? ' ·' : ''}</td><td>${p.lv}</td><td>${p.days}</td><td>${p.kos}</td></tr>`).join('');
   $('topT').innerHTML = `<tr><th>#</th><th>${t('bName')}</th><th>${t('bBest')}</th><th>${t('bLv')}</th></tr>` + b.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${p.bestDays}</td><td>${p.level}</td></tr>`).join('');
 }
-Object.assign(ICON, { plastic: '♻️', pane: '🪟', hammer: '🔨', axe: '🪓', shield: '🛡' });
-const CARRY_ICON = { workbench: '🛠', barricade: '🚧', wall: '🧱', door: '🚪', trap: '🪤', claim: '🚩', chest: '📦', cot: '🛏', torch: '🔥', lantern: '🏮' };
+const CARRY_ICON = new Proxy({}, { get: (_, k) => carrySvg(k) });
+const ACH_IC = { night1: 'moon', night5: 'moon', night10: 'moon', blood: 'drop', fog: 'cloud', eat10: 'food', break1: 'hammer', break25: 'hammer', mats100: 'plank', craft1: 'craft', craft15: 'craft', build10: 'wall', base: 'flag', anchor: 'pin', ko1: 'bat', ko10: 'bat', trap: 'trap', lv5: 'star', lv10: 'star', streak3: 'fire', style: 'user', team: 'users' };
+const achIc = (a, n = 16) => svg(ACH_IC[a.id] || 'trophy', n);
 function nearFlag(flag) { return boxesCache.some(b => TYPES[b.f.type]?.[flag] && Math.max(b.x0 - me.x, 0, me.x - b.x1) ** 2 + Math.max(b.z0 - me.z, 0, me.z - b.z1) ** 2 < 2.5 ** 2); }
 const nearStove = () => nearFlag('stove');
 // material a piece of furniture breaks into (drives colours of chips + sound)
@@ -423,10 +441,10 @@ function closeInv() {
 }
 function itemTip(it) {
   const d = ITEMS[it.t]; if (!d) return '';
-  const lines = [`<b>${ICON[it.t] || '📦'} ${esc(iname(it.t))}</b>${it.n > 1 ? ` ×${it.n}` : ''}`];
-  if (d.weapon) lines.push(`⚔ ${d.dmg} ${t('dmg')}` + (d.fx ? ` · 🪓 ${t('breakPow')}${d.fx}` : ''));
-  if (d.dur) lines.push(`🔧 ${t('durab')}: ${it.d ?? d.dur}/${d.dur}`);
-  if (d.food) lines.push(`🍖 +${d.food} ${t('food_')}`); if (d.energy) lines.push(`⚡ +${d.energy} ${t('energy_')}`); if (d.heal) lines.push(`❤ +${d.heal} ${t('heal_')}`);
+  const lines = [`<b>${esc(iname(it.t))}</b>${it.n > 1 ? ` <span class="dim">×${it.n}</span>` : ''}`];
+  if (d.weapon) lines.push(`${d.dmg} ${t('dmg')}` + (d.fx ? ` · ${t('breakPow')}${d.fx}` : ''));
+  if (d.dur) lines.push(`${t('durab')}: ${it.d ?? d.dur}/${d.dur}`);
+  if (d.food) lines.push(`+${d.food} ${t('food_')}`); if (d.energy) lines.push(`+${d.energy} ${t('energy_')}`); if (d.heal) lines.push(`+${d.heal} ${t('heal_')}`);
   if (d.mat) lines.push(`<i>${t('matDesc')}</i>`);
   lines.push(`<small>${lang === 'ru' ? 'В стопке до' : 'Stacks to'} ${stackOf(it.t)}</small>`);
   return lines.join('<br>');
@@ -438,8 +456,8 @@ function slotEl(it, idx, kind) {
   d.dataset.idx = idx; d.dataset.kind = kind;
   if (kind === 'inv' && idx < HOTBAR) d.innerHTML = `<small>${idx + 1}</small>`;
   if (it) {
-    d.innerHTML += `<span class="ic">${ICON[it.t] || '📦'}</span>` + (it.n > 1 ? `<b class="cnt">${it.n}</b>` : '');
-    if (it.d != null && ITEMS[it.t].dur) { const f = it.d / ITEMS[it.t].dur; d.innerHTML += `<div class="dur"><i style="width:${f * 100}%;background:${f < 0.25 ? '#e74c3c' : '#2ecc71'}"></i></div>`; }
+    d.innerHTML += `<span class="ic">${ICON[it.t]}</span>` + (it.n > 1 ? `<b class="cnt">${it.n}</b>` : '');
+    if (it.d != null && ITEMS[it.t].dur) { const f = it.d / ITEMS[it.t].dur; d.innerHTML += `<div class="dur${f < 0.25 ? ' low' : ''}"><i style="width:${f * 100}%"></i></div>`; }
   }
   d.onpointerenter = (e) => { hoverSlot = kind === 'inv' ? idx : -1; if (it && !drag) showTip(itemTip(it), e); };
   d.onpointermove = (e) => { if (it && !drag) showTip(itemTip(it), e); };
@@ -449,7 +467,7 @@ function slotEl(it, idx, kind) {
     if (e.button !== 0 || !it) return; e.preventDefault();
     if (e.shiftKey && kind === 'inv' && it.n > 1) { const empty = stats.inv.findIndex((x, i) => !x && i >= 0); if (empty >= 0) socket.emit('invmove', { from: idx, to: empty, n: Math.floor(it.n / 2) }); sfx.play('click'); return; }
     if (e.ctrlKey && kind === 'inv') { socket.emit('discard', { slot: idx, n: 1 }); return; }
-    const ghostEl = document.createElement('div'); ghostEl.className = 'dragGhost'; ghostEl.innerHTML = (ICON[it.t] || '📦') + (it.n > 1 ? `<b>${it.n}</b>` : ''); document.body.appendChild(ghostEl);
+    const ghostEl = document.createElement('div'); ghostEl.className = 'dragGhost'; ghostEl.innerHTML = ICON[it.t] + (it.n > 1 ? `<b>${it.n}</b>` : ''); document.body.appendChild(ghostEl);
     drag = { from: idx, kind, it, el: ghostEl, sx: e.clientX, sy: e.clientY, moved: false }; hideTip(); moveDrag(e);
   };
   return d;
@@ -479,7 +497,7 @@ function renderInv() {
   const hb = document.createElement('div'); hb.className = 'igrid'; for (let i = 0; i < HOTBAR; i++) hb.appendChild(slotEl(stats.inv?.[i], i, 'inv')); left.appendChild(hb);
   left.insertAdjacentHTML('beforeend', `<div class="sub">${t('backpack')}</div>`);
   const bp = document.createElement('div'); bp.className = 'igrid'; for (let i = HOTBAR; i < SLOTS; i++) bp.appendChild(slotEl(stats.inv?.[i], i, 'inv')); left.appendChild(bp);
-  const h = have(), mats = ['plank', 'scrap', 'cloth', 'plastic', 'pane'].map(m => `<span title="${esc(iname(m))}">${ICON[m]} ${h[m] || 0}</span>`).join('');
+  const h = have(), mats = ['plank', 'scrap', 'cloth', 'plastic', 'pane'].map(m => `<span title="${esc(iname(m))}">${svg({ plank: 'plank', scrap: 'scrap', cloth: 'cloth', plastic: 'plastic', pane: 'pane' }[m], 15)}${h[m] || 0}</span>`).join('');
   left.insertAdjacentHTML('beforeend', `<div class="matsum"><b>${t('materials')}:</b> ${mats}</div><div class="ihint">${t('invHint')}</div>`);
   box.appendChild(left);
   // right: crafting or chest
@@ -500,10 +518,10 @@ function renderInv() {
     for (const r of RECIPES) {
       if (craftCat !== 'all' && r.cat !== craftCat) continue;
       const okMat = Object.entries(r.needs).every(([k, n]) => (h[k] || 0) >= n), ok = okMat && (!r.bench || bench) && (!r.stove || stove) && (!r.carry || !stats.carry);
-      const name = r.gives ? iname(r.gives) : tname(r.carry), icon = r.gives ? ICON[r.gives] || '📦' : CARRY_ICON[r.carry] || '🪑';
+      const name = r.gives ? iname(r.gives) : tname(r.carry), icon = r.gives ? ICON[r.gives] : CARRY_ICON[r.carry];
       const div = document.createElement('div'); div.className = 'recipe' + (ok ? ' ok' : '');
       const sub = r.carry ? `<small class="pl">${t('placeable')}</small>` : (r.n > 1 ? ` ×${r.n}` : '');
-      div.innerHTML = `<div class="ric">${icon}</div><div class="rinfo"><b>${esc(name)}</b> ${sub}<div class="need">${Object.entries(r.needs).map(([k, n]) => `<span class="${(h[k] || 0) >= n ? '' : 'miss'}">${ICON[k] || ''} ${h[k] || 0}/${n} ${esc(iname(k))}</span>`).join('')}${r.bench ? `<span class="${bench ? '' : 'miss'}">🛠 ${t('needBench')}</span>` : ''}${r.stove ? `<span class="${stove ? '' : 'miss'}">🔥 ${t('needStove')}</span>` : ''}</div></div>`;
+      div.innerHTML = `<div class="ric">${icon}</div><div class="rinfo"><b>${esc(name)}</b> ${sub}<div class="need">${Object.entries(r.needs).map(([k, n]) => `<span class="${(h[k] || 0) >= n ? '' : 'miss'}">${esc(iname(k))} ${h[k] || 0}/${n}</span>`).join('')}${r.bench ? `<span class="${bench ? '' : 'miss'}">${t('needBench')}</span>` : ''}${r.stove ? `<span class="${stove ? '' : 'miss'}">${t('needStove')}</span>` : ''}</div></div>`;
       const b = document.createElement('button'); b.textContent = t('craftBtn'); b.disabled = !ok; b.onclick = () => { socket.emit('craft', r.id); sfx.play('craft'); if (r.carry) closeInv(); };
       if (r.gives) div.onpointerenter = (e) => showTip(itemTip({ t: r.gives, n: r.n || 1 }), e), div.onpointerleave = hideTip;
       div.appendChild(b); list.appendChild(div);
@@ -524,7 +542,7 @@ function toast(html, cls = '', ms = 3500) {
 }
 function openAch() {
   const el = $('achList'); $('achTitleH').textContent = t('achTitle') + ` — ${myAch.size}/${ACHIEVEMENTS.length}`;
-  el.innerHTML = `<div class="streakRow">🔥 ${t('streakDays')}: <b>${myStreak}</b></div>` + ACHIEVEMENTS.map(a => `<div class="ach${myAch.has(a.id) ? ' got' : ''}"><span class="ai">${a.icon}</span><div><b>${esc(nm(a))}</b><small>${esc(lang === 'ru' ? a.dru : a.den)}</small></div><em>+${a.xp} XP</em></div>`).join('');
+  el.innerHTML = `<div class="streakRow">${svg('fire', 14)} ${t('streakDays')}: <b>${myStreak}</b></div>` + ACHIEVEMENTS.map(a => `<div class="ach${myAch.has(a.id) ? ' got' : ''}"><span class="ai">${achIc(a, 18)}</span><div><b>${esc(nm(a))}</b><small>${esc(lang === 'ru' ? a.dru : a.den)}</small></div><em>+${a.xp} XP</em></div>`).join('');
   $('achP').classList.remove('hidden'); document.exitPointerLock?.();
 }
 
@@ -563,9 +581,9 @@ function addCrack(g, b, frac) {
 }
 function showHpBar(f, hp, max) {
   const b = f.box || aabb(f); let e = hpBars.get(f.id);
-  if (!e) { const el = document.createElement('div'); el.className = 'fhp'; el.innerHTML = '<i></i><span></span>'; document.body.appendChild(el); e = { el }; hpBars.set(f.id, e); }
+  if (!e) { const el = document.createElement('div'); el.className = 'fhp'; el.innerHTML = '<span></span><b><i></i></b>'; document.body.appendChild(el); e = { el }; hpBars.set(f.id, e); }
   Object.assign(e, { x: (b.x0 + b.x1) / 2, y: b.h + 0.4, z: (b.z0 + b.z1) / 2, t: 3 });
-  const fr = Math.max(0, hp / max); e.el.firstChild.style.width = fr * 100 + '%'; e.el.firstChild.style.background = fr < 0.3 ? '#e74c3c' : fr < 0.6 ? '#f39c12' : '#2ecc71'; e.el.lastChild.textContent = `${tname(f.type)} ${Math.max(0, Math.round(hp))}/${max}`;
+  const fr = Math.max(0, hp / max); e.el.querySelector('i').style.width = fr * 100 + '%'; e.el.classList.toggle('low', fr < 0.3); e.el.firstChild.textContent = tname(f.type);
 }
 function updateHpBars(dt) {
   for (const [id, e] of hpBars) {
@@ -582,7 +600,10 @@ function applyStatic() {
   document.querySelectorAll('[data-tp]').forEach(e => { e.placeholder = t(e.dataset.tp); });
   document.querySelectorAll('.settings').forEach(buildSettings);
   $('helpBody').innerHTML = HELP[lang];
+  document.querySelectorAll('[data-ic]').forEach(e => { if (e.dataset.icDone !== '1') { e.insertAdjacentHTML('afterbegin', svg(e.dataset.ic, e.closest('#tbtns') ? 22 : 18)); e.dataset.icDone = '1'; } });
+  applyHud();
 }
+$('setBtn').onclick = () => $('menuSettings').classList.toggle('collapsed');
 function applyLang(l) {
   setLang(l); applyStatic();
   for (const k of [...chunks.keys()]) unloadChunk(k);
@@ -591,8 +612,8 @@ function applyLang(l) {
   if (invOpen) renderInv(); if (lastBoard) renderBoard(lastBoard); tip(tipIdx);
 }
 const HELP = {
-  ru: `<table><tr><td>WASD</td><td>ходить · <b>Shift</b> бег · <b>Пробел</b> прыжок</td></tr><tr><td>Мышь</td><td>камера · колесо — отдалить</td></tr><tr><td>ЛКМ</td><td>удар / ломать мебель / поставить</td></tr><tr><td>ПКМ / X</td><td>съесть / использовать</td></tr><tr><td>E</td><td>подобрать · взять мебель · открыть дверь/сундук (Shift+E — взять)</td></tr><tr><td>Q / R / V</td><td>поставить · повернуть · высота (на столы и полки)</td></tr><tr><td>Ctrl+Z</td><td>забрать последнее поставленное</td></tr><tr><td>I / C</td><td>инвентарь · крафт</td></tr><tr><td>L</td><td>закрепить свою постройку</td></tr><tr><td>Z</td><td>спать у кровати</td></tr><tr><td>F / T</td><td>фонарик · метка</td></tr><tr><td>G</td><td>выбросить предмет</td></tr><tr><td>1–8</td><td>панель быстрого доступа</td></tr><tr><td>H J K U Y</td><td>эмоции</td></tr><tr><td>Tab / Enter</td><td>таблица · чат</td></tr></table><p>Ломай мебель (лучше молотком или топором), чтобы получить дерево, металлолом, ткань, пластик и стекло. Крафти верстак — у него открываются стены, двери и ловушки. Сломанная мебель со временем возвращается, но не на территории чужой базы. Ночью сотрудники ломают баррикады — укрепляй крепость!</p>`,
-  en: `<table><tr><td>WASD</td><td>move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr><tr><td>Mouse</td><td>camera · wheel zooms</td></tr><tr><td>LMB</td><td>attack / break furniture / place</td></tr><tr><td>RMB / X</td><td>eat / use</td></tr><tr><td>E</td><td>pick up · grab furniture · open door/chest (Shift+E grabs)</td></tr><tr><td>Q / R / V</td><td>place · rotate · height (onto tables and shelves)</td></tr><tr><td>Ctrl+Z</td><td>pick your last piece back up</td></tr><tr><td>I / C</td><td>inventory · crafting</td></tr><tr><td>L</td><td>anchor your build</td></tr><tr><td>Z</td><td>sleep near a bed</td></tr><tr><td>F / T</td><td>flashlight · waypoint</td></tr><tr><td>G</td><td>drop item</td></tr><tr><td>1–8</td><td>hotbar</td></tr><tr><td>H J K U Y</td><td>emotes</td></tr><tr><td>Tab / Enter</td><td>leaderboard · chat</td></tr></table><p>Break furniture (a hammer or axe is fastest) for wood, scrap, cloth, plastic and glass. Craft a workbench to unlock walls, doors and traps. Broken furniture grows back over time, but never inside someone's base. At night the employees smash barricades, so reinforce your fort!</p>`,
+  ru: `<table><tr><td>WASD</td><td>ходить · <b>Shift</b> бег · <b>Пробел</b> прыжок</td></tr><tr><td>Мышь</td><td>камера · колесо — отдалить</td></tr><tr><td>ЛКМ</td><td>удар / ломать мебель / поставить</td></tr><tr><td>ПКМ / X</td><td>съесть / использовать</td></tr><tr><td>E</td><td>подобрать · взять мебель · открыть дверь/сундук (Shift+E — взять)</td></tr><tr><td>Q / R / V</td><td>поставить · повернуть · высота (на столы и полки)</td></tr><tr><td>Ctrl+Z</td><td>забрать последнее поставленное</td></tr><tr><td>I / C</td><td>инвентарь · крафт</td></tr><tr><td>L</td><td>закрепить свою постройку</td></tr><tr><td>Z</td><td>спать у кровати</td></tr><tr><td>F / T</td><td>фонарик · метка</td></tr><tr><td>G</td><td>выбросить предмет</td></tr><tr><td>1–8</td><td>панель быстрого доступа</td></tr><tr><td>B J K U Y</td><td>эмоции</td></tr><tr><td>H</td><td>интерфейс: полный / минимальный / скрыт</td></tr><tr><td>N</td><td>миникарта</td></tr><tr><td>Tab / Enter</td><td>таблица · чат</td></tr></table><p>Ломай мебель (лучше молотком или топором), чтобы получить дерево, металлолом, ткань, пластик и стекло. Крафти верстак — у него открываются стены, двери и ловушки. Сломанная мебель со временем возвращается, но не на территории чужой базы. Ночью сотрудники ломают баррикады — укрепляй крепость!</p>`,
+  en: `<table><tr><td>WASD</td><td>move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr><tr><td>Mouse</td><td>camera · wheel zooms</td></tr><tr><td>LMB</td><td>attack / break furniture / place</td></tr><tr><td>RMB / X</td><td>eat / use</td></tr><tr><td>E</td><td>pick up · grab furniture · open door/chest (Shift+E grabs)</td></tr><tr><td>Q / R / V</td><td>place · rotate · height (onto tables and shelves)</td></tr><tr><td>Ctrl+Z</td><td>pick your last piece back up</td></tr><tr><td>I / C</td><td>inventory · crafting</td></tr><tr><td>L</td><td>anchor your build</td></tr><tr><td>Z</td><td>sleep near a bed</td></tr><tr><td>F / T</td><td>flashlight · waypoint</td></tr><tr><td>G</td><td>drop item</td></tr><tr><td>1–8</td><td>hotbar</td></tr><tr><td>B J K U Y</td><td>emotes</td></tr><tr><td>H</td><td>interface: full / minimal / hidden</td></tr><tr><td>N</td><td>minimap</td></tr><tr><td>Tab / Enter</td><td>leaderboard · chat</td></tr></table><p>Break furniture (a hammer or axe is fastest) for wood, scrap, cloth, plastic and glass. Craft a workbench to unlock walls, doors and traps. Broken furniture grows back over time, but never inside someone's base. At night the employees smash barricades, so reinforce your fort!</p>`,
 };
 const TIPS = {
   ru: ['Добро пожаловать в магазин! День длится 6 минут, ночь — 5. Еду завозят по понедельникам и пятницам — больше всего в столовой.',
@@ -601,23 +622,23 @@ const TIPS = {
     'Открой инвентарь (I) или крафт (C). Сначала сделай верстак — с ним открываются стены, двери и ловушки.',
     'Неся мебель: R — повернуть, V — выбрать высоту (можно ставить на столы), Ctrl+Z — забрать обратно.',
     'Флаг базы защищает твою крепость: внутри неё мебель не появляется снова, и ты возрождаешься там.',
-    'Нажми 🎨 ПЕРСОНАЖ в меню — новые причёски, шапки и узоры открываются с уровнем.',
-    'F — фонарик, T — метка, L — закрепить постройку, Tab — таблица, Enter — чат, Esc — настройки.'],
+    'Нажми «Персонаж» в меню — новые причёски, шапки и узоры открываются с уровнем.',
+    'F — фонарик, T — метка, L — закрепить, N — карта, H — интерфейс, Tab — таблица, Enter — чат.'],
   en: ['Welcome to the store! Days last 6 minutes, nights 5. Food restocks every Monday and Friday — the Cafeteria has the most.',
     'Employees are harmless by day. At night they hunt anyone they spot and smash barricades. Build a fort!',
     'Break furniture with LMB for materials. A hammer or axe breaks things much faster.',
     'Open the inventory (I) or crafting (C). Craft a workbench first — it unlocks walls, doors and traps.',
     'While carrying: R rotates, V picks the height (you can place on tables), Ctrl+Z picks it back up.',
     'A Claim Flag protects your fort: furniture never respawns inside it and you respawn there.',
-    'Press 🎨 AVATAR in the menu — new hair, hats and patterns unlock as you level up.',
-    'F flashlight, T waypoint, L anchor builds, Tab leaderboard, Enter chat, Esc settings.'],
+    'Press «Avatar» in the menu — new hair, hats and patterns unlock as you level up.',
+    'F flashlight, T waypoint, L anchor, N map, H interface, Tab leaderboard, Enter chat.'],
 };
 let tipIdx = 0, tipTimer;
 function tip(i) {
   tipIdx = i; const el = $('tip');
   if (!settings.tips || i >= TIPS[lang].length) { el.style.opacity = 0; return; }
-  el.textContent = '💡 ' + TIPS[lang][i]; el.style.opacity = 1;
-  clearTimeout(tipTimer); tipTimer = setTimeout(() => tip(i + 1), 14000);
+  el.textContent = TIPS[lang][i]; el.style.opacity = 1;
+  clearTimeout(tipTimer); tipTimer = setTimeout(() => { el.style.opacity = 0; tipTimer = setTimeout(() => tip(i + 1), 6000); }, 9000);
 }
 
 // ---------------- input ----------------
@@ -652,7 +673,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Tab' && !invOpen) { e.preventDefault(); $('board').classList.remove('hidden'); return; }
-  if (e.key === 'Enter') { chatOpen = true; const i = $('chatInput'); i.style.display = 'block'; i.focus(); document.exitPointerLock?.(); [...$('chatLog').children].forEach(d => d.style.opacity = 1); return; }
+  if (e.key === 'Enter') { chatOpen = true; const i = $('chatInput'); i.style.display = 'block'; i.focus(); document.exitPointerLock?.(); $('chat').classList.add('active', 'open'); return; }
   const k = e.code; keys[k] = true;
   if (stats.dead) return;
   if (invOpen) {
@@ -677,12 +698,14 @@ addEventListener('keydown', (e) => {
   if (k === 'KeyL') lockNearest();
   if (k === 'KeyT') { if (e.shiftKey) { while (waypoints.length) removeWaypoint(0); showMsg(t('wpCleared')); } else addWaypoint(); }
   if (k === 'KeyM') openPause();
-  const em = { KeyH: 'wave', KeyJ: 'dance', KeyK: 'sit', KeyU: 'point', KeyY: 'cheer' }[k];
+  if (k === 'KeyH' && !e.repeat) cycleHud();
+  if (k === 'KeyN' && !e.repeat) { settings.map = !settings.map; saveSettings(); applyHud(); document.querySelectorAll('.settings').forEach(buildSettings); }
+  const em = { KeyB: 'wave', KeyJ: 'dance', KeyK: 'sit', KeyU: 'point', KeyY: 'cheer' }[k];
   if (em) socket.emit('emote', em);
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; if (e.key === 'Tab') $('board').classList.add('hidden'); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-function closeChat() { chatOpen = false; const i = $('chatInput'); i.value = ''; i.style.display = 'none'; i.blur(); if (!isTouch) lockPointer(); }
+function closeChat() { chatOpen = false; const i = $('chatInput'); i.value = ''; i.style.display = 'none'; i.blur(); $('chat').classList.remove('open'); chatPing(); if (!isTouch) lockPointer(); }
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 
 // ---------------- actions ----------------
@@ -856,7 +879,7 @@ function drawMinimap() {
   $('compass').textContent = (lang === 'ru' ? ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'] : ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'])[Math.round((((-(yaw - Math.PI)) % 6.283) + 6.283) % 6.283 / 0.785) % 8];
   $('coords').textContent = `X ${me.x.toFixed(0)}  Z ${me.z.toFixed(0)}`;
   const zk = world.zoneAt(me.x, me.z), zn = ZONES[zk];
-  $('zoneName').textContent = (ZONE_ICON[zk] ? ZONE_ICON[zk] + ' ' : '') + zname(zk);
+  $('zoneName').textContent = zname(zk);
   curZone = zk;
 }
 
@@ -1010,11 +1033,11 @@ function loop() {
       else {
         const ty = tg.f?.type, mine = tg.id.startsWith('p_');
         html = mine && (ty === 'door' || ty === 'dooropen') ? `<b>E</b> ${ty === 'dooropen' ? t('closeDoor') : t('open')} · <b>Shift+E</b> ${t('grab')}` : mine && ty === 'chest' ? `<b>E</b> ${t('open')} ${esc(tg.name)} · <b>Shift+E</b> ${t('grab')}` : `<b>E</b> ${t('grab')} ${esc(tg.name)}`;
-        if (tg.f?.locked) html += ' 🔩 ' + t('anchored');
+        if (tg.f?.locked) html += ' · ' + t('anchored');
         if (mine && tg.f?.owner === myName) html += ' · <b>L</b> ' + (tg.f.locked ? t('unanchor') : t('anchor'));
       }
     }
-    if (tf && !stats.carry && breakable(tf.type)) { const h = fhp.get(tf.id) || { hp: tf.hp ?? furnHp(tf.type), max: furnHp(tf.type) }; html += (html ? ' · ' : '') + `<b>${lang === 'ru' ? 'ЛКМ' : 'LMB'}</b> ${t('hit')} (${Math.max(0, Math.round(h.hp))}/${h.max})`; }
+    if (tf && !stats.carry && breakable(tf.type)) { const h = fhp.get(tf.id) || { hp: tf.hp ?? furnHp(tf.type), max: furnHp(tf.type) }; html += (html ? ' · ' : '') + `<b>${lang === 'ru' ? 'ЛКМ' : 'LMB'}</b> ${t('hit')}${h.hp < h.max ? ' ' + Math.round(Math.max(0, h.hp) / h.max * 100) + '%' : ''}`; }
     if (bed && !stats.sleeping && !stats.carry) html += (html ? ' · ' : '') + `<b>Z</b> ${t('sleep')}`;
     if (stats.sleeping) html = t('sleeping');
     if (nearFlag('bench') && !stats.carry) html += (html ? ' · ' : '') + `<b>C</b> ${t('craftHere')}`;
@@ -1023,10 +1046,11 @@ function loop() {
     const hrs = (gameT / CYCLE * 24 + 9) % 24, night = gameT >= DAY;
     const left = Math.ceil(night ? CYCLE - gameT : DAY - gameT), mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     $('dayLabel').textContent = `${t('day')} ${dayN} · ${wd(weekday(dayN))}`;
-    $('timeLabel').textContent = (night ? (dinfo.blood ? t('blood') : t('night')) : dinfo.fog ? t('fog') : t('dayL')) + ` · ${night ? t('opens') : t('closes')} ${mmss}` + `  ·  ${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor(hrs % 1 * 60)).padStart(2, '0')}`;
+    const cic = night ? 'moon' : dinfo.fog ? 'cloud' : 'sun'; if ($('clockIc').dataset.k !== cic) { $('clockIc').dataset.k = cic; $('clockIc').innerHTML = svg(cic, 14); }
+    $('timeLabel').textContent = `${String(Math.floor(hrs)).padStart(2, '0')}:${String(Math.floor(hrs % 1 * 60)).padStart(2, '0')}` + (left <= 60 || night ? ` · ${night && dinfo.blood ? t('blood').toLowerCase() + ' · ' : ''}${night ? t('opens') : t('closes')} ${mmss}` : '');
     $('timeBar').firstElementChild.style.width = (gameT / CYCLE * 100) + '%';
     $('clock').classList.toggle('night', night); $('clock').classList.toggle('blood', night && dinfo.blood); $('clock').classList.toggle('fog', !night && dinfo.fog);
-    $('wpList').innerHTML = waypoints.map(w => `<div style="color:${w.col}">◆ ${w.n} · ${Math.round(Math.hypot(w.x - me.x, w.z - me.z))} ${lang === 'ru' ? 'м' : 'm'}</div>`).join('');
+    $('wpList').innerHTML = waypoints.map(w => `<div><i style="background:${w.col}"></i>${w.n} · ${Math.round(Math.hypot(w.x - me.x, w.z - me.z))} ${lang === 'ru' ? 'м' : 'm'}</div>`).join('');
   }
   renderer.render(scene, camera);
 }

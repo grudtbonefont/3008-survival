@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { makeAvatar, animate, disposeGroup } from './models.js';
 import { CATS, SKINS, PALETTE, HAIR_COLORS, DEFAULT_AVATAR, validateAvatar, randomAvatar, locked } from '/shared/avatar.js';
 import { t, nm } from './i18n.js';
+import { svg } from './icons.js';
 
 const KEY = '3008av';
 export function loadAvatar() { try { return validateAvatar(JSON.parse(localStorage.getItem(KEY)), 99); } catch { return { ...DEFAULT_AVATAR }; } }
@@ -23,7 +24,7 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 export function openEditor({ level = 1, onSave }) {
   let av = loadAvatar(), tab = 'body', dragging = false, lastX = 0, yaw = 0.5, spin = true, model = null, raf = 0;
   const el = document.createElement('div'); el.id = 'avatarEd'; el.className = 'panel wide';
-  el.innerHTML = `<div class="edHead"><h2>${t('editor')}</h2><div class="edBtns"><button id="edRand">${t('random')}</button><button id="edReset">${t('reset')}</button><button id="edSave" class="primary">${t('save')}</button><button id="edX" title="Esc">✕</button></div></div>
+  el.innerHTML = `<div class="edHead"><h2>${t('editor')}</h2><div class="edBtns"><button id="edRand">${t('random')}</button><button id="edReset">${t('reset')}</button><button id="edSave" class="primary">${t('save')}</button><button id="edX" class="iconBtn" title="Esc">${svg('x', 18)}</button></div></div>
   <div class="edBody"><div class="edPrev"><canvas id="edCanvas"></canvas><div class="edLv">${t('yourLv', { lv: level })}</div></div>
   <div class="edSide"><div class="edTabs"></div><div class="edOpts"></div><div class="edCols"></div></div></div>`;
   document.body.appendChild(el);
@@ -34,8 +35,8 @@ export function openEditor({ level = 1, onSave }) {
   scene.add(new THREE.HemisphereLight(0xfff4e0, 0x4a4038, 1.3));
   const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(3, 5, 4); scene.add(key);
   const rim = new THREE.DirectionalLight(0x9fc8ff, 1.2); rim.position.set(-4, 3, -3); scene.add(rim);
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 0.12, 48), new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.5 })); disc.position.y = -0.06; scene.add(disc);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.03, 8, 64), new THREE.MeshBasicMaterial({ color: 0x1d4fa8 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 0.12, 48), new THREE.MeshStandardMaterial({ color: 0x2c2c32, roughness: 0.8 })); disc.position.y = -0.06; scene.add(disc);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.012, 8, 64), new THREE.MeshBasicMaterial({ color: 0xe8c872 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
   const holder = new THREE.Group(); scene.add(holder);
 
   function rebuild() {
@@ -57,13 +58,13 @@ export function openEditor({ level = 1, onSave }) {
   cv.addEventListener('dblclick', () => { spin = !spin; });
 
   function renderTabs() {
-    el.querySelector('.edTabs').innerHTML = TABS.map(x => `<button data-tab="${x.id}" class="${x.id === tab ? 'on' : ''}">${x.icon} ${t('c_' + x.id)}</button>`).join('');
+    el.querySelector('.edTabs').innerHTML = TABS.map(x => `<button data-tab="${x.id}" class="${x.id === tab ? 'on' : ''}">${t('c_' + x.id)}</button>`).join('');
     el.querySelectorAll('.edTabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; renderTabs(); renderOpts(); });
   }
   function renderOpts() {
     const T = TABS.find(x => x.id === tab), list = CATS[T.cat];
     el.querySelector('.edOpts').innerHTML = list.map(o => { const lk = locked(T.cat, o.id, level);
-      return `<button data-id="${o.id}" class="opt ${av[T.cat] === o.id ? 'on' : ''} ${lk ? 'lock' : ''}" ${lk ? 'disabled' : ''}>${nm(o)}${lk ? `<small>🔒 ${t('lvReq', { lv: o.lv })}</small>` : o.lv > 1 ? `<small>★ ${t('lvReq', { lv: o.lv })}</small>` : ''}</button>`; }).join('');
+      return `<button data-id="${o.id}" class="opt ${av[T.cat] === o.id ? 'on' : ''} ${lk ? 'lock' : ''}" ${lk ? 'disabled' : ''}>${nm(o)}${lk ? `<small>${svg('lock', 11)} ${t('lvReq', { lv: o.lv })}</small>` : o.lv > 1 ? `<small>★ ${t('lvReq', { lv: o.lv })}</small>` : ''}</button>`; }).join('');
     el.querySelectorAll('.edOpts .opt').forEach(b => b.onclick = () => { av[T.cat] = b.dataset.id; rebuild(); renderOpts(); });
     el.querySelector('.edCols').innerHTML = T.colors.map(([k, pal, lab]) => `<div class="colRow"><span>${t(lab)}</span><div class="sw">${pal.map(c => `<i data-k="${k}" data-c="${c}" style="background:${hex(c)}" class="${av[k] === c ? 'on' : ''}"></i>`).join('')}<label class="pick" title="RGB"><input type="color" data-k="${k}" value="${hex(av[k])}"></label></div></div>`).join('');
     el.querySelectorAll('.edCols i').forEach(i => i.onclick = () => { av[i.dataset.k] = +i.dataset.c; rebuild(); renderOpts(); });
