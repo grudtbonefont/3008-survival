@@ -50,7 +50,20 @@ export class Sfx {
     if (!this.ctx) return;
     const pan = o.pan || 0, gain = o.gain ?? 1;
     switch (name) {
-      case 'step': this.noiseBurst({ freq: 300 + Math.random() * 200, q: 0.8, peak: 0.25, dec: 0.08, gain: gain * 0.6, pan }); break;
+      case 'step': { // surface-dependent footsteps: tile (default), carpet (soft), metal (ringing), wood (hollow)
+        const sf = o.surf || 'tile', base = { tile: 380, carpet: 180, metal: 1400, wood: 260 }[sf] || 380;
+        this.noiseBurst({ freq: base + Math.random() * base * 0.5, q: sf === 'metal' ? 4 : 0.8, peak: sf === 'carpet' ? 0.14 : 0.25, dec: sf === 'carpet' ? 0.06 : 0.08, gain: gain * 0.6, pan });
+        if (sf === 'metal') this.tone({ freq: 700 + Math.random() * 300, type: 'triangle', peak: 0.04, dec: 0.12, gain, pan });
+        if (sf === 'wood') this.tone({ freq: 110 + Math.random() * 30, to: 80, peak: 0.12, dec: 0.08, gain, pan });
+        break; }
+      case 'door': this.tone({ freq: 140, to: 90, type: 'sawtooth', a: 0.05, peak: 0.12, dec: 0.4, gain, pan }); this.noiseBurst({ freq: 300, peak: 0.4, dec: 0.12, when: 0.3, gain, pan }); break;
+      case 'chest': this.tone({ freq: 180, to: 120, type: 'square', peak: 0.08, dec: 0.25, gain }); this.noiseBurst({ freq: 700, q: 2, peak: 0.3, dec: 0.1, when: 0.15, gain }); break;
+      case 'trap': this.noiseBurst({ freq: 2400, q: 3, peak: 0.9, dec: 0.08, gain, pan }); this.tone({ freq: 900, to: 300, type: 'square', peak: 0.2, dec: 0.15, gain, pan }); break;
+      case 'crack': this.noiseBurst({ freq: 1200 + Math.random() * 800, q: 2, peak: 0.5, dec: 0.08, gain, pan }); break;
+      case 'shatter': for (let i = 0; i < 5; i++) this.noiseBurst({ freq: 3000 + Math.random() * 3000, q: 4, peak: 0.35, dec: 0.12, when: i * 0.04, gain, pan }); break;
+      case 'metal': this.tone({ freq: 520 + Math.random() * 200, type: 'triangle', peak: 0.3, dec: 0.5, gain, pan }); this.noiseBurst({ freq: 2000, q: 3, peak: 0.4, dec: 0.08, gain, pan }); break;
+      case 'toast': this.tone({ freq: 880, type: 'triangle', peak: 0.12, dec: 0.15 }); this.tone({ freq: 1320, type: 'triangle', peak: 0.1, dec: 0.2, when: 0.08 }); break;
+      case 'ach': [784, 988, 1175, 1568].forEach((f, i) => this.tone({ freq: f, type: 'triangle', peak: 0.16, dec: 0.35, when: i * 0.1 })); break;
       case 'jump': this.noiseBurst({ freq: 500, peak: 0.2, dec: 0.1, gain }); break;
       case 'land': this.noiseBurst({ freq: 200, q: 0.5, peak: 0.5, dec: 0.12, gain }); break;
       case 'swing': this.noiseBurst({ freq: 1800, q: 2, a: 0.04, peak: 0.25, dec: 0.12, gain, pan }); break;

@@ -19,7 +19,7 @@ for (const type of Object.keys(TYPES)) {
     const minY = Math.min(...B.map(b => b.y0)), maxY = Math.max(...B.map(b => b.y1));
     if (Math.abs(minY) > 0.003) issues.add(`lowest point ${minY.toFixed(3)} (should be 0)`);
     B.forEach((b, i) => { if (b.y0 < -0.003) issues.add(`part ${i} below floor ${b.y0.toFixed(3)}`); });
-    if (!['claim', 'sign'].includes(type)) B.forEach((b, i) => { const tol = Math.min(P[i].sx, P[i].sz) <= 0.03 ? 0.045 : 0.012; if (b.x0 < -T.w / 2 - tol || b.x1 > T.w / 2 + tol || b.z0 < -T.d / 2 - tol || b.z1 > T.d / 2 + tol) issues.add(`part ${i} (${P[i].s} ${P[i].sx}x${P[i].sy}x${P[i].sz}) outside footprint x[${b.x0.toFixed(2)},${b.x1.toFixed(2)}] z[${b.z0.toFixed(2)},${b.z1.toFixed(2)}]`); });
+    if (!['claim', 'sign', 'dooropen'].includes(type)) B.forEach((b, i) => { const tol = Math.min(P[i].sx, P[i].sz) <= 0.03 ? 0.045 : 0.012; if (b.x0 < -T.w / 2 - tol || b.x1 > T.w / 2 + tol || b.z0 < -T.d / 2 - tol || b.z1 > T.d / 2 + tol) issues.add(`part ${i} (${P[i].s} ${P[i].sx}x${P[i].sy}x${P[i].sz}) outside footprint x[${b.x0.toFixed(2)},${b.x1.toFixed(2)}] z[${b.z0.toFixed(2)},${b.z1.toFixed(2)}]`); });
     if (maxY > Math.max(T.h, 0.05) + 0.6 && !T.fixed && !['tv', 'counter', 'bunkbed', 'sign', 'claim'].includes(type)) issues.add(`top ${maxY.toFixed(2)} far above h ${T.h}`);
     // connectivity from the floor
     const seen = new Set(), q = [];

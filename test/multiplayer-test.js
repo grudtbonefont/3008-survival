@@ -2,10 +2,10 @@
 import { spawn } from 'child_process';
 import { io } from 'socket.io-client';
 import fs from 'fs'; import os from 'os'; import path from 'path';
-import { World, aabb, VERSION, TYPES } from '../shared/world.js';
+import { World, aabb, VERSION, TYPES, furnHp, breakable, SLOTS } from '../shared/world.js';
 const PORT = 3999, URL = `http://localhost:${PORT}`;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), '3008-'));
-const srv = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT, SEED: '1234', DATA_DIR, ALLOW_DEBUG: '1', START_TIME: '30' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const srv = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT, SEED: '1234', DATA_DIR, ALLOW_DEBUG: '1', START_TIME: '30', FURN_RESPAWN_MS: '1500' }, stdio: ['ignore', 'pipe', 'pipe'] });
 let errOut = ''; srv.stderr.on('data', d => errOut += d);
 await new Promise((res, rej) => { srv.stdout.on('data', d => { process.stdout.write('[server] ' + d); if (/ on :\d+/.test(d)) res(); }); setTimeout(() => rej(new Error('server start timeout')), 8000); });
 const fail = (m) => { console.error('FAIL:', m); srv.kill(); process.exit(1); };
@@ -32,7 +32,22 @@ ok('deterministic world generation identical across clients');
 const zones = new Set(); for (let i = -6; i < 6; i++) for (let j = -6; j < 6; j++) zones.add(wA.chunk(i, j).zone); ok('zones present: ' + [...zones].join(', '));
 const t0 = Date.now(); const pth = wA.findPath(2, 2, 60, 40); ok(`A* path ${pth ? pth.length : 'none'} steps in ${Date.now() - t0} ms`);
 await wait(200);
-if (!statsA || statsA.inv.length !== 8 || statsA.inv[0]?.t !== 'water') fail('starting inventory ' + JSON.stringify(statsA?.inv)); ok('8-slot object inventory with starter water');
+if (!statsA || statsA.inv.length !== SLOTS || statsA.inv[0]?.t !== 'water' || statsA.inv[0]?.n !== 1) fail('starting inventory ' + JSON.stringify(statsA?.inv)); ok(SLOTS + '-slot stacking inventory with starter water');
+
+// ---- avatars: validated on the server, synced to everyone ----
+const c = io(URL, { transports: ['websocket'] });
+const avB = once(b, 'avatar', x => x.av.hair === 'mohawk');
+c.on('connect', () => c.emit('join', { name: 'Cara', token: 'test-token-1234', avatar: { hat: 'crown', hair: 'mohawk', face: 'nope', shirt: 'red', shirt2: 0xff0000, back: 'cape', body: 'wide', skin: -5 } }));
+const initC = await once(c, 'init'); const avc = (await avB).av;
+if (avc.hat !== 'none' || avc.face !== 'smile' || avc.shirt2 !== 0xff0000 || avc.back !== 'cape' || avc.body !== 'wide' || typeof avc.shirt !== 'number' || avc.skin < 0) fail('avatar validation ' + JSON.stringify(avc));
+ok('avatar validated server-side (locked crown + bad values rejected) and broadcast: ' + JSON.stringify({ hair: avc.hair, hat: avc.hat, back: avc.back, body: avc.body }));
+if (initC.avatars[initA.id]?.v !== 1 || initC.av.hair !== 'mohawk') fail('init avatars ' + JSON.stringify(Object.keys(initC.avatars))); ok('late joiner receives everyone\'s avatars in init');
+const avA = once(b, 'avatar', x => x.id === initA.id && x.av.face === 'wink' && x.av.hat === 'cap'); const achA = once(a, 'ach', id => id === 'style');
+a.emit('setAvatar', { face: 'wink', hat: 'cap', hatColor: 0x1d4fa8, facewear: 'sunglasses' }); await avA; await achA; ok('setAvatar synced live to other players + "style" achievement');
+c.disconnect();
+await wait(100);
+const c2 = io(URL, { transports: ['websocket'] }); c2.on('connect', () => c2.emit('join', { name: 'Cara', token: 'test-token-1234' }));
+const initC2 = await once(c2, 'init'); if (initC2.av.hair !== 'mohawk') fail('profile avatar not remembered'); ok('avatar remembered in the device profile'); c2.disconnect();
 
 let ax = initA.x, az = initA.z;
 async function walkTo(x, z, stop = 0) {
@@ -80,6 +95,57 @@ const bad = once(a, 'msg', m => /in the way|claimed|Step back|Too high/.test(m))
 let spot = null;
 for (let r = 2; r < 6 && !spot; r += 0.5) for (let k = 0; k < 16 && !spot; k++) { const x = Math.round((ax + Math.cos(k / 16 * 6.283) * r) * 2) / 2, z = Math.round((az + Math.sin(k / 16 * 6.283) * r) * 2) / 2; const bx = aabb({ type: furn.type, x, z, rot: 1 }); if (wA.canPlace(bx) && !(ax > bx.x0 - 0.5 && ax < bx.x1 + 0.5 && az > bx.z0 - 0.5 && az < bx.z1 + 0.5)) spot = { x, z }; }
 const pl = once(b, 'placed'); a.emit('place', { ...spot, rot: 1 }); const po = await pl; ok(`Alice placed ${po.type} as ${po.id} at (${po.x}, ${po.z}), Bob saw it`);
+
+// ---- destruction: break a table with bare hands, get materials, it respawns later ----
+const hasN = (t) => (statsA?.inv || []).reduce((n, x) => n + (x?.t === t ? x.n : 0), 0);
+let tbl = null; bd = 1e9;
+for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const f of wA.chunk(ccx + i, ccz + j).furn) {
+  if (!['table', 'chair', 'desk', 'nightstand', 'dresser', 'bookshelf'].includes(f.type) || wA.removed.has(f.id) || !breakable(f.type)) continue;
+  if (wA.chunk(ccx + i, ccz + j).items.some(it => it.y && it.x > f.box.x0 && it.x < f.box.x1 && it.z > f.box.z0 && it.z < f.box.z1)) continue;
+  const d = Math.hypot(f.x - ax, f.z - az); if (d < bd) { bd = d; tbl = f; } }
+if (!tbl) fail('no breakable furniture nearby');
+{
+  const bx = tbl.box; const sx = bx.x1 + 0.75, sz = (bx.z0 + bx.z1) / 2;
+  await walkTo(sx, sz); const ry = Math.atan2(tbl.x - ax, tbl.z - az);
+  const hp0 = once(b, 'furnhp', x => x.id === tbl.id); const brk = once(b, 'broke', x => x.id === tbl.id, 40000); const loot = once(a, 'loot', () => true, 40000);
+  const before = { plank: hasN('plank'), cloth: hasN('cloth'), scrap: hasN('scrap') };
+  let hits = 0, done = false; brk.then(() => done = true);
+  const firstHp = hp0.then(x => x);
+  while (!done && hits < 80) { a.emit('attack', { ry, fid: tbl.id }); hits++; await wait(420); }
+  const fh = await firstHp; const br = await brk; const got = await loot; await wait(150);
+  if (fh.max !== furnHp(tbl.type) || fh.hp >= fh.max) fail('furnhp ' + JSON.stringify(fh));
+  ok(`furniture HP synced (${fh.hp}/${fh.max}); ${tbl.type} broke after ${hits} punches -> debris event ${JSON.stringify({ type: br.type, w: +br.w.toFixed(2) })}`);
+  const gained = got.every(g => hasN(g.t) >= (before[g.t] || 0) + g.n);
+  if (!got.length || !gained) fail('material reward ' + JSON.stringify(got) + ' inv ' + JSON.stringify(statsA.inv.filter(Boolean)));
+  ok('materials rewarded into inventory: ' + got.map(g => g.n + 'x ' + g.t).join(', '));
+  wA.markRemoved(tbl.id);
+  await walkTo(sx + 3, sz);
+  await once(b, 'restored', id => id === tbl.id, 9000); wA.unmarkRemoved(tbl.id); ok('broken store furniture respawned (outside any claim)');
+}
+// ---- stacking / split / crafting with materials ----
+await wait(450); a.emit('chat', '/give plank 12'); await wait(450); a.emit('chat', '/give scrap 10'); await wait(300);
+const pS = statsA.inv.findIndex(x => x?.t === 'plank');
+if (statsA.inv.filter(x => x?.t === 'plank').length !== 1 || hasN('plank') < 12) fail('materials did not stack ' + JSON.stringify(statsA.inv.filter(Boolean)));
+ok(`materials stack in one slot (slot ${pS}: ${statsA.inv[pS].n} wood)`);
+const empty = statsA.inv.findIndex((x, i) => !x && i >= 8);
+const spl = once(a, 'stats', s => s.inv[empty]?.t === 'plank' && s.inv[empty].n === 2); a.emit('invmove', { from: pS, to: empty, n: 2 }); await spl; ok('split 2 wood into another slot');
+const mrg = once(a, 'stats', s => !s.inv[empty]); a.emit('invmove', { from: empty, to: pS }); await mrg; ok('merged the stack back');
+const plank0 = hasN('plank');
+const cb = once(a, 'stats', s => s.inv.some(x => x?.t === 'bat')); a.emit('craft', 'bat'); await cb;
+if (hasN('plank') !== plank0 - 3) fail('bat cost ' + hasN('plank')); ok('crafted a bat from 3 wood (materials consumed)');
+const nb = once(a, 'msg', m => /workbench/.test(m)); a.emit('craft', 'wall'); await nb; ok('workbench recipes require a workbench nearby');
+const cw = once(a, 'stats', s => s.carry?.type === 'workbench'); a.emit('craft', 'bench'); await cw; ok('crafted a workbench (carried for placement)');
+let wspot = null;
+for (let r = 2; r < 7 && !wspot; r += 0.5) for (let k = 0; k < 16 && !wspot; k++) { const x = Math.round((ax + Math.cos(k / 16 * 6.283) * r) * 2) / 2, z = Math.round((az + Math.sin(k / 16 * 6.283) * r) * 2) / 2; const bx = aabb({ type: 'workbench', x, z, rot: 0 }); if (wA.canPlace(bx) && Math.max(bx.x0 - ax, 0, ax - bx.x1) ** 2 + Math.max(bx.z0 - az, 0, az - bx.z1) ** 2 > 0.5 && Math.max(bx.x0 - ax, 0, ax - bx.x1) ** 2 + Math.max(bx.z0 - az, 0, az - bx.z1) ** 2 < 1.5 ** 2) wspot = { x, z }; }
+if (!wspot) fail('no spot for workbench');
+const pw = once(b, 'placed', o => o.type === 'workbench'); a.emit('place', { ...wspot, rot: 0 }); const wb = await pw; wA.addPlaced({ ...wb }); ok('placed workbench ' + wb.id);
+await wait(200);
+const cww = once(a, 'stats', s => s.carry?.type === 'wall'); a.emit('craft', 'wall'); await cww; ok('crafted a reinforced wall at the workbench');
+const un = once(b, 'placed', o => o.type === 'wall'); let wl = null;
+for (let r = 2; r < 7 && !wl; r += 0.5) for (let k = 0; k < 16 && !wl; k++) { const x = Math.round((ax + Math.cos(k / 16 * 6.283) * r) * 2) / 2, z = Math.round((az + Math.sin(k / 16 * 6.283) * r) * 2) / 2; const bx = aabb({ type: 'wall', x, z, rot: 0 }); if (wA.canPlace(bx) && !(ax > bx.x0 - 0.5 && ax < bx.x1 + 0.5 && az > bx.z0 - 0.5 && az < bx.z1 + 0.5)) wl = { x, z }; }
+a.emit('place', { ...wl, rot: 0 }); const wall = await un; ok('placed wall ' + wall.id);
+const ud = once(a, 'stats', s => s.carry?.type === 'wall'); const gone = once(b, 'unplaced', id => id === wall.id); a.emit('undo'); await gone; await ud; ok('undo picked the wall back up');
+a.emit('place', { ...wl, rot: 0 }); await once(b, 'placed', o => o.type === 'wall');
 
 // sleep in the nearest bed
 let bed = null; bd = 1e9;

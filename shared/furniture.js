@@ -45,7 +45,48 @@ export const TYPES = {
   medstation: { w: 1.2, d: 0.45, h: 1.0, name: 'Medkit Station', fixed: true },
   tree: { w: 0.9, d: 0.9, h: 2.4, name: 'Small Tree' },
   infodesk: { w: 2.4, d: 1.0, h: 1.05, name: 'Information Desk', fixed: true },
+  // v2.4 store furniture
+  armchair: { w: 0.9, d: 0.85, h: 0.9, name: 'Armchair' },
+  nightstand: { w: 0.5, d: 0.4, h: 0.55, name: 'Nightstand' },
+  dresser: { w: 1.2, d: 0.5, h: 0.85, name: 'Dresser' },
+  vending: { w: 0.9, d: 0.8, h: 1.9, name: 'Vending Machine' },
+  filecab: { w: 0.5, d: 0.6, h: 1.3, name: 'File Cabinet' },
+  washer: { w: 0.6, d: 0.6, h: 0.85, name: 'Washing Machine' },
+  mirror: { w: 0.7, d: 0.4, h: 1.7, name: 'Floor Mirror' },
+  cartrow: { w: 0.6, d: 2.2, h: 1.0, name: 'Shopping Carts' },
+  // v2.4 crafted buildables
+  workbench: { w: 1.6, d: 0.8, h: 0.95, name: 'Workbench', bench: true, hp: 260 },
+  wall: { w: 2, d: 0.3, h: 2.6, name: 'Reinforced Wall', hp: 700 },
+  door: { w: 1.2, d: 0.25, h: 2.4, name: 'Door', hp: 380, door: true },
+  dooropen: { w: 1.2, d: 0.25, h: 2.4, name: 'Door (open)', hp: 380, door: true, walk: true },
+  trap: { w: 0.8, d: 0.8, h: 0.12, name: 'Snap Trap', walk: true, trap: true, hp: 120 },
+  chest: { w: 1.0, d: 0.6, h: 0.7, name: 'Storage Chest', chest: true, hp: 200 },
+  cot: { w: 0.9, d: 2.0, h: 0.45, name: 'Camp Bed', bed: true, hp: 120 },
+  torch: { w: 0.3, d: 0.3, h: 1.5, name: 'Torch', light: true, hp: 40 },
+  lantern: { w: 0.4, d: 0.4, h: 1.7, name: 'Lantern Post', light: true, hp: 90 },
 };
+// Russian names
+export const TYPE_RU = { shelf: 'Стеллаж', bookshelf: 'Книжный шкаф', bed: 'Кровать', bunkbed: 'Двухъярусная кровать', sofa: 'Диван', table: 'Стол', desk: 'Письменный стол',
+  chair: 'Стул', officechair: 'Офисное кресло', lamp: 'Торшер', wardrobe: 'Шкаф', display: 'Витрина', counter: 'Кухонная тумба', stove: 'Плита', fridge: 'Холодильник',
+  toilet: 'Унитаз', bathtub: 'Ванна', sink: 'Раковина', tv: 'Тумба с ТВ', plant: 'Растение', rug: 'Ковёр', rack: 'Складской стеллаж', toybox: 'Ящик с игрушками',
+  slide: 'Горка', ballpit: 'Сухой бассейн', barricade: 'Баррикада', claim: 'Флаг базы', foodcounter: 'Раздача еды', register: 'Касса', clocktower: 'Часовая башня',
+  fountain: 'Фонтан', pillar: 'Колонна', sign: 'Указатель', pallet: 'Поддон', worklight: 'Прожектор', medstation: 'Медпункт', tree: 'Деревце', infodesk: 'Справочная',
+  armchair: 'Кресло', nightstand: 'Тумбочка', dresser: 'Комод', vending: 'Торговый автомат', filecab: 'Картотека', washer: 'Стиральная машина', mirror: 'Зеркало',
+  cartrow: 'Тележки', workbench: 'Верстак', wall: 'Укреплённая стена', door: 'Дверь', dooropen: 'Дверь (открыта)', trap: 'Капкан', chest: 'Сундук', cot: 'Раскладушка',
+  torch: 'Факел', lantern: 'Фонарь на столбе' };
+// What each piece breaks into (wood=plank, metal=scrap, fabric=cloth, plastic, glass=pane).
+export const LOOT = { shelf: { scrap: 3, plank: 1 }, bookshelf: { plank: 3 }, bed: { plank: 2, cloth: 3 }, bunkbed: { plank: 3, cloth: 2, scrap: 1 }, sofa: { cloth: 3, plank: 1 },
+  table: { plank: 3 }, desk: { plank: 2, scrap: 1 }, chair: { plank: 1 }, officechair: { plastic: 1, scrap: 1, cloth: 1 }, lamp: { scrap: 1, pane: 1 },
+  wardrobe: { plank: 4 }, display: { plank: 1, pane: 2 }, counter: { plank: 2, scrap: 1 }, stove: { scrap: 3 }, fridge: { scrap: 2, plastic: 2 }, toilet: { plastic: 1, pane: 1 },
+  bathtub: { plastic: 2, scrap: 1 }, sink: { plastic: 1, scrap: 1 }, tv: { plank: 1, plastic: 1, pane: 1 }, plant: { plastic: 1 }, rug: { cloth: 2 }, rack: { scrap: 5 },
+  toybox: { plastic: 2 }, slide: { plastic: 3 }, ballpit: { plastic: 3, cloth: 1 }, barricade: { plank: 2, scrap: 1 }, claim: { cloth: 1 }, pallet: { plank: 2 },
+  worklight: { scrap: 1, pane: 1 }, tree: { plank: 1 }, armchair: { cloth: 2, plank: 1 }, nightstand: { plank: 1 }, dresser: { plank: 3 }, vending: { scrap: 3, pane: 2, plastic: 1 },
+  filecab: { scrap: 3 }, washer: { scrap: 2, plastic: 1, pane: 1 }, mirror: { pane: 2, plank: 1 }, cartrow: { scrap: 3, plastic: 1 }, workbench: { plank: 3, scrap: 1 },
+  wall: { plank: 2, scrap: 3 }, door: { plank: 2, scrap: 1 }, dooropen: { plank: 2, scrap: 1 }, trap: { scrap: 2 }, chest: { plank: 3 }, cot: { plank: 1, cloth: 2 },
+  torch: { plank: 1 }, lantern: { scrap: 1, pane: 1 } };
+// Hit points: explicit for buildables, otherwise from the piece's size.
+export const furnHp = (type) => { const t = TYPES[type]; if (!t) return 100; return t.hp || Math.round(Math.min(320, 20 + t.w * t.d * Math.max(t.h, 0.3) * 26)); };
+export const breakable = (type) => !!TYPES[type] && !TYPES[type].fixed && type !== 'sign';
 
 // Coordinated palettes so every piece reads as one designed product.
 const WOODS = [0xc8a27a, 0x9b6b43, 0x5e4130, 0xe3cfb0, 0x3a2a20, 0xb98c5e];          // oak, walnut, wenge, birch, espresso, teak
@@ -553,6 +594,129 @@ export function localParts(type, c = 7) {
       box(0.8, 2.08, -0.268, 0.06, 0.06, 0.004, 0xffffff, 'e');
       box(0.8, 1.99, -0.268, 0.06, 0.13, 0.004, 0xffffff, 'e');
       rb(-0.5, 1.05, -0.2, 0.42, 0.28, 0.04, 0x111111, 'p', 0.01, { rx: -0.2 });
+      break;
+    }
+    case 'armchair': {
+      rb(0, 0.08, 0, 0.9, 0.3, 0.85, fab, 'f', 0.05);
+      for (const a of [-1, 1]) for (const b of [-1, 1]) cyl(a * 0.36, 0, b * 0.34, 0.05, 0.08, wood, 'w', { t: 0.7 });
+      rb(0, 0.38, 0.06, 0.66, 0.14, 0.7, fab, 'f', 0.05);
+      rb(0, 0.38, -0.34, 0.9, 0.52, 0.17, fab, 'f', 0.06);
+      for (const a of [-1, 1]) rb(a * 0.38, 0.38, 0.02, 0.14, 0.24, 0.78, fab, 'f', 0.05);
+      break;
+    }
+    case 'nightstand': {
+      rb(0, 0, 0, 0.5, 0.55, 0.4, wood, 'w', 0.01);
+      for (const y of [0.1, 0.33]) { box(0, y, 0.201, 0.44, 0.18, 0.008, wood, 'w'); knob(0, y + 0.09, 0.21); }
+      cyl(0.1, 0.55, 0, 0.12, 0.16, pick(ACCENT), 'p', { t: 0.7 }); cyl(0.1, 0.71, 0, 0.2, 0.12, 0xfff4dc, 'e', { t: 0.7 });
+      break;
+    }
+    case 'dresser': {
+      rb(0, 0.05, 0, 1.2, 0.8, 0.5, wood, 'w', 0.012);
+      for (const a of [-1, 1]) for (const b of [-1, 1]) box(a * 0.55, 0, b * 0.2, 0.06, 0.05, 0.06, DARK, 'w');
+      for (let i = 0; i < 3; i++) { const y = 0.1 + i * 0.25; box(0, y, 0.251, 1.12, 0.22, 0.008, wood, 'w'); barH(0, y + 0.11, 0.265, 0.3); }
+      break;
+    }
+    case 'vending': {
+      const col = pick([0xc0392b, 0x1d4fa8, 0x2a7d4f]);
+      rb(0, 0, 0, 0.9, 1.9, 0.8, col, 'p', 0.02);
+      box(-0.1, 0.55, 0.401, 0.56, 1.15, 0.01, 0x9ecbe0, 'e');
+      for (let r2 = 0; r2 < 5; r2++) for (let k = 0; k < 4; k++) box(-0.3 + k * 0.13, 0.62 + r2 * 0.22, 0.395, 0.08, 0.12, 0.004, BRIGHT[(r2 * 4 + k + c) % BRIGHT.length], 'p');
+      box(0.3, 1.1, 0.401, 0.16, 0.5, 0.01, 0x222222, 'p'); box(0.3, 1.45, 0.402, 0.14, 0.08, 0.008, 0x44ff88, 'e');
+      box(-0.1, 0.2, 0.401, 0.56, 0.22, 0.01, 0x111111, 'p');
+      break;
+    }
+    case 'filecab': {
+      rb(0, 0, 0, 0.5, 1.3, 0.6, 0x8a9096, 'm', 0.01);
+      for (let i = 0; i < 4; i++) { const y = 0.05 + i * 0.31; box(0, y, 0.301, 0.44, 0.28, 0.008, 0x9aa0a6, 'm'); barH(0, y + 0.2, 0.315, 0.14, 0x333333); box(0, y + 0.08, 0.306, 0.1, 0.05, 0.004, WHITE, 'p'); }
+      break;
+    }
+    case 'washer': {
+      rb(0, 0, 0, 0.6, 0.85, 0.6, WHITE, 'p', 0.02);
+      cyl(0, 0.42, 0.29, 0.42, 0.02, 0x9aa0a6, 'm', { rx: Math.PI / 2, y: 0.42, z: 0.296, seg: 28 });
+      cyl(0, 0.42, 0.3, 0.32, 0.01, 0x8fb8d0, 'e', { rx: Math.PI / 2, y: 0.42, z: 0.302, seg: 28 });
+      box(0, 0.72, 0.301, 0.56, 0.1, 0.008, 0xd0d0d0, 'p'); cyl(0.2, 0.77, 0.3, 0.05, 0.02, DARK, 'p', { rx: Math.PI / 2, y: 0.77, z: 0.302 });
+      break;
+    }
+    case 'mirror': {
+      for (const a of [-1, 1]) rb(a * 0.32, 0, 0, 0.05, 0.05, 0.4, wood, 'w', 0.01);
+      rb(0, 0.05, -0.05, 0.7, 1.65, 0.05, wood, 'w', 0.012, { rx: -0.08 });
+      box(0, 0.1, -0.01, 0.6, 1.55, 0.01, 0xcfe3ec, 'e', { rx: -0.08, y: 0.875 });
+      break;
+    }
+    case 'cartrow': {
+      for (let i = 0; i < 4; i++) {
+        const z = -0.8 + i * 0.5;
+        for (const a of [-1, 1]) for (const b of [-1, 1]) cyl(a * 0.22, 0, z + b * 0.2, 0.08, 0.08, 0x222222, 'p');
+        box(0, 0.08, z, 0.5, 0.04, 0.5, 0x9aa0a6, 'm');
+        rb(0, 0.12, z, 0.56, 0.5, 0.56, 0xb5babf, 'm', 0.01);
+        box(0, 0.62, z - 0.27, 0.56, 0.04, 0.04, 0xe63946, 'p');
+        cyl(0, 0.62, z - 0.27, 0.035, 0.53, 0xe63946, 'p', { rz: Math.PI / 2, y: 0.9 });
+        for (const a of [-1, 1]) box(a * 0.25, 0.62, z - 0.27, 0.03, 0.28, 0.03, 0xb5babf, 'm');
+      }
+      break;
+    }
+    case 'workbench': {
+      for (const a of [-1, 1]) for (const b of [-1, 1]) rb(a * 0.72, 0, b * 0.32, 0.08, 0.86, 0.08, 0x8b5a2b, 'w', 0.01);
+      box(0, 0.25, 0, 1.5, 0.04, 0.7, 0x8b5a2b, 'w');
+      rb(0, 0.86, 0, 1.6, 0.09, 0.8, 0xb98c5e, 'w', 0.01);
+      rb(0.55, 0.95, 0.1, 0.3, 0.12, 0.2, 0x5c86b8, 'm', 0.01);                             // vice
+      cyl(-0.4, 0.95, -0.1, 0.06, 0.25, 0x8a9096, 'm', { rz: Math.PI / 2, y: 0.98 });          // tool
+      rb(-0.1, 0.95, 0.15, 0.22, 0.04, 0.1, 0xe0b020, 'p', 0.01);
+      for (let i = 0; i < 3; i++) rb(-0.5 + i * 0.4, 0.29, 0, 0.3, 0.12 + i * 0.04, 0.4, 0x7a5236, 'w', 0.01);
+      break;
+    }
+    case 'wall': {
+      rb(0, 0, 0, 2, 2.6, 0.18, 0x9b6b43, 'w', 0.01);
+      for (const y of [0.4, 1.3, 2.2]) rb(0, y - 0.15, 0.1, 2, 0.3, 0.04, 0x6f757b, 'm', 0.006);
+      for (const x of [-0.95, 0.95]) rb(x, 0, 0, 0.1, 2.6, 0.3, 0x55595e, 'm', 0.01);
+      for (const x of [-0.6, 0, 0.6]) for (const y of [0.4, 1.3, 2.2]) cyl(x, y, 0.13, 0.04, 0.02, 0x333333, 'm', { rx: Math.PI / 2, y, z: 0.125 });
+      break;
+    }
+    case 'door': case 'dooropen': {
+      for (const x of [-0.55, 0.55]) rb(x, 0, 0, 0.1, 2.4, 0.25, 0x5e4130, 'w', 0.01);
+      rb(0, 2.3, 0, 1.2, 0.1, 0.25, 0x5e4130, 'w', 0.01);
+      if (type === 'door') {
+        rb(0, 0.02, 0, 1.0, 2.26, 0.06, 0xb98c5e, 'w', 0.01);
+        for (const y of [0.3, 1.2]) box(0, y, 0.031, 0.8, 0.7, 0.01, 0xa47a50, 'w');
+        knob(0.38, 1.05, 0.04, 0xd4a650);
+      } else {
+        raw({ s: 'r', x: -0.47, y: 1.15, z: 0.0, sx: 0.06, sy: 2.26, sz: 0.12, c: 0xb98c5e, m: 'w', r: 0.01 }); // swung leaf, edge-on
+      }
+      break;
+    }
+    case 'trap': {
+      cyl(0, 0, 0, 0.78, 0.03, 0x55595e, 'm', { seg: 20 });
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; box(Math.sin(a) * 0.3, 0.03, Math.cos(a) * 0.3, 0.04, 0.09, 0.04, 0xb5babf, 'm', { ry: a }); }
+      cyl(0, 0.03, 0, 0.18, 0.03, 0xc0392b, 'p');
+      break;
+    }
+    case 'chest': {
+      rb(0, 0, 0, 1.0, 0.5, 0.6, 0x9b6b43, 'w', 0.015);
+      rb(0, 0.5, 0, 1.0, 0.2, 0.6, 0x8b5a2b, 'w', 0.04);
+      for (const x of [-0.42, 0.42]) box(x, 0, 0, 0.06, 0.7, 0.62, 0x55595e, 'm');
+      box(0, 0.42, 0.301, 0.12, 0.14, 0.02, 0xd4a650, 'm');
+      break;
+    }
+    case 'cot': {
+      for (const a of [-1, 1]) for (const b of [-1, 1]) cyl(a * 0.4, 0, b * 0.9, 0.04, 0.35, 0x55595e, 'm');
+      for (const a of [-1, 1]) cyl(a * 0.42, 0.35, 0, 0.05, 2.0, 0x6f757b, 'm', { rx: Math.PI / 2, y: 0.37 });
+      box(0, 0.35, 0, 0.84, 0.05, 1.96, 0x5d7350, 'f');
+      rb(0, 0.4, -0.75, 0.6, 0.06, 0.35, 0xe9e2d0, 'f', 0.02);
+      break;
+    }
+    case 'torch': {
+      cyl(0, 0, 0, 0.26, 0.06, 0x55595e, 'm');
+      cyl(0, 0.06, 0, 0.05, 1.2, 0x7a5236, 'w');
+      cyl(0, 1.2, 0, 0.12, 0.12, 0x5d4037, 'f', { t: 1.4 });
+      sph(0, 1.38, 0, 0.16, 0.24, 0.16, 0xffa53a, 'e');
+      break;
+    }
+    case 'lantern': {
+      cyl(0, 0, 0, 0.36, 0.05, 0x2b2d30, 'm');
+      cyl(0, 0.05, 0, 0.05, 1.3, 0x2b2d30, 'm');
+      rb(0, 1.35, 0, 0.3, 0.04, 0.3, 0x2b2d30, 'm', 0.005);
+      rb(0, 1.39, 0, 0.24, 0.24, 0.24, 0xfff1c0, 'e', 0.01);
+      rb(0, 1.63, 0, 0.32, 0.05, 0.32, 0x2b2d30, 'm', 0.01);
       break;
     }
     case 'sign': {

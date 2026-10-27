@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>3008 Survival — The Infinite Store</title>
+<title>3008 Survival — Бесконечный магазин</title>
 <link rel="stylesheet" href="/style.css">
 <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
 </head>
@@ -32,38 +32,38 @@
   <div id="hotbar"></div>
   <div id="msg"></div>
   <div id="tip"></div>
-  <div id="chat"><div id="chatLog"></div><input id="chatInput" maxlength="160" placeholder="Say something… (/help)" autocomplete="off"></div>
+  <div id="chat"><div id="chatLog"></div><input id="chatInput" maxlength="160" data-tp="chatPh" placeholder="…" autocomplete="off"></div>
   <div id="party"></div>
   <div id="flags"></div>
+  <div id="toasts"></div>
+  <div id="fps"></div>
 </div>
-<div id="board" class="panel hidden"><h2>🏆 Store Survivors</h2><div class="cols"><div><h3>Online</h3><table id="onlineT"></table></div><div><h3>All-time (most nights)</h3><table id="topT"></table></div></div></div>
-<div id="craft" class="panel hidden"><h2>🔨 Crafting <small>(C to close)</small></h2><div id="recipes"></div></div>
-<div id="pause" class="panel hidden"><h2>Paused</h2>
+<div id="itTip"></div>
+<div id="board" class="panel hidden"><h2 data-t="board"></h2><div class="cols"><div><h3 data-t="online"></h3><table id="onlineT"></table></div><div><h3 data-t="allTime"></h3><table id="topT"></table></div></div></div>
+<div id="inv" class="hidden"><div class="box"><button id="invClose" class="x">✕</button><div id="invBody"></div></div></div>
+<div id="achP" class="panel hidden"><h2 id="achTitleH"></h2><div id="achList"></div><button id="achClose" data-t="close"></button></div>
+<div id="pause" class="panel hidden"><h2 data-t="paused"></h2>
   <div class="settings"></div>
-  <div class="row"><button id="resumeBtn">Resume</button><button id="helpBtn">Controls</button></div>
+  <div class="row"><button id="resumeBtn" data-t="resume"></button><button id="helpBtn" data-t="controls"></button></div>
+  <div class="row"><button id="pAvBtn" data-t="avatarBtn"></button><button id="pAchBtn" data-t="achBtn"></button></div>
 </div>
-<div id="help" class="panel hidden"><h2>Controls</h2><div class="keys">
-<b>WASD</b> move · <b>Shift</b> sprint · <b>Space</b> jump · <b>Mouse</b> look · <b>Wheel</b> zoom<br>
-<b>LMB</b> attack / place · <b>RMB / X</b> use item · <b>1-8</b> select slot · <b>G</b> drop item<br>
-<b>E</b> pick up item / grab furniture · <b>R</b> rotate · <b>Q</b> place · <b>L</b> anchor / weld your furniture · <b>T</b> waypoint (Shift+T clear) · <b>M</b> menu<br>
-<b>Z</b> sleep in bed · <b>C</b> crafting · <b>F</b> flashlight · <b>Tab</b> leaderboard · <b>Enter</b> chat<br>
-Emotes: <b>H</b> wave · <b>J</b> dance · <b>K</b> sit · <b>U</b> point · <b>Y</b> cheer<br>
-Chat: /pvp · /team invite NAME (or /party) · /party accept · /party leave · /me · /stuck</div><button id="helpClose">Close</button></div>
-<div id="death" class="panel hidden"><h1>YOU DIED</h1><p id="deathWhy"></p><button id="respawnBtn">Respawn</button></div>
+<div id="help" class="panel hidden"><h2 data-t="controls"></h2><div class="keys" id="helpBody"></div><button id="helpClose" data-t="close"></button></div>
+<div id="death" class="panel hidden"><h1 data-t="died"></h1><p id="deathWhy"></p><button id="respawnBtn" data-t="respawn"></button></div>
 <div id="menu">
   <div class="menuBox">
     <h1>3008<span>SURVIVAL</span></h1>
-    <p class="sub">An endless furniture store. The staff come out at night.</p>
-    <input id="nameInput" maxlength="16" placeholder="Your name">
-    <button id="playBtn">ENTER THE STORE</button>
+    <p class="sub" data-t="sub"></p>
+    <input id="nameInput" maxlength="16" data-tp="name" placeholder="…">
+    <button id="playBtn" data-t="play"></button>
+    <div class="row menuRow"><button id="avatarBtn" data-t="avatarBtn"></button><button id="achBtn" data-t="achBtn"></button></div>
     <div class="settings"></div>
-    <p class="hint">Survive the nights. Build a fort. Don't let them see you.</p>
+    <p class="hint" data-t="hint"></p>
     <p class="ver" id="ver"></p>
   </div>
 </div>
 <div id="touch" class="hidden">
   <div id="joy"><i></i></div>
-  <div id="tbtns"><button data-k="jump">⤒</button><button data-k="attack">✊</button><button data-k="use">E</button><button data-k="place">▣</button><button data-k="eat">🍴</button><button data-k="sprint">🏃</button><button data-k="sleep">💤</button><button data-k="craft">🔨</button></div>
+  <div id="tbtns"><button data-k="jump">⤒</button><button data-k="attack">✊</button><button data-k="use">E</button><button data-k="place">▣</button><button data-k="eat">🍴</button><button data-k="sprint">🏃</button><button data-k="sleep">💤</button><button data-k="craft">🎒</button></div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script type="module" src="/main.js"></script>

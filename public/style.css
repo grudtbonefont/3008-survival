@@ -95,3 +95,55 @@ button{background:#f5c518;color:#111;border:none;border-radius:8px;padding:9px 1
 .slot{border-radius:6px;background:rgba(20,20,20,.6)}
 #bigDay.fog{color:#eee}
 @media (max-width:800px){#stats{width:300px;bottom:60px}#mapWrap{transform:scale(.7);transform-origin:bottom right}#plist{width:150px;font-size:11px}#chat{width:220px;top:56px;left:10px;bottom:auto}#level{display:none}}
+
+/* ---- 2.4: avatar editor, inventory, crafting, chest, toasts, achievements ---- */
+.panel.wide{width:min(980px,96vw);max-height:92vh;padding:16px 20px}
+#avatarEd{z-index:30;display:flex;flex-direction:column}
+.edHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.edHead h2{margin:0}
+.edBtns button{font-size:14px;padding:8px 14px;background:#333;color:#fff}.edBtns button.primary{background:#2ecc71;color:#08200f}
+.edBody{display:flex;gap:16px;margin-top:10px;min-height:0;flex:1}
+.edPrev{position:relative;flex:0 0 40%;min-height:420px;border-radius:12px;background:radial-gradient(ellipse at 50% 40%,#3a3a48,#14141a);overflow:hidden}
+.edPrev canvas{width:100%;height:100%;display:block;cursor:grab}.edLv{position:absolute;left:8px;right:8px;bottom:8px;font-size:12px;text-align:center;opacity:.8}
+.edSide{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.edTabs{display:flex;flex-wrap:wrap;gap:4px}.edTabs button{margin:0;padding:6px 10px;font-size:13px;background:#2a2a33;color:#ddd}.edTabs button.on{background:#f5c518;color:#111}
+.edOpts{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:6px;margin:10px 0;max-height:46vh;overflow:auto;padding-right:4px}
+.opt{margin:0;padding:10px 6px;font-size:13px;background:#24242c;color:#eee;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px}
+.opt.on{border-color:#f5c518;background:#3a3420}.opt small{font-size:10px;opacity:.75;font-weight:600}.opt.lock{opacity:.45;cursor:not-allowed}
+.colRow{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13px}.colRow>span{width:130px;flex:none}
+.sw{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.sw i{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;display:inline-block}
+.sw i.on{border-color:#fff;box-shadow:0 0 0 2px #f5c518}.sw input[type=color],.pick{width:28px;height:24px;border:none;background:none;padding:0;cursor:pointer}
+.menuRow{display:flex;gap:6px}.menuRow button{flex:1;margin:4px 0;font-size:14px;background:#1d4fa8;color:#fff}
+#inv{position:fixed;inset:0;z-index:12;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+#inv .box{position:relative;background:rgba(18,18,24,.96);border:1px solid #444;border-radius:14px;padding:16px 18px;width:min(1040px,96vw);max-height:90vh;overflow:auto}
+#inv .x{position:absolute;right:8px;top:6px;margin:0;padding:4px 10px;background:#333;color:#fff}
+#invBody{display:flex;gap:20px}.invL{flex:0 0 auto}.invR{flex:1;min-width:0}
+.invL h3{margin:0 0 4px;color:#f5c518}.sub{font-size:12px;opacity:.7;margin:6px 0 4px}
+.igrid{display:grid;grid-template-columns:repeat(8,52px);gap:5px}.chestG{grid-template-columns:repeat(6,52px);margin-top:10px}
+.islot{width:52px;height:52px;background:#26262e;border:2px solid #3a3a44;border-radius:8px;position:relative;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer}
+.islot:hover{border-color:#888}.islot.hb{background:#2c2a20}.islot.sel{border-color:#f5c518}
+.islot small{position:absolute;left:3px;top:0;font-size:10px;opacity:.6}.islot .ic{pointer-events:none}
+.cnt{position:absolute;right:3px;bottom:1px;font-size:12px;font-weight:900;text-shadow:0 1px 2px #000;color:#fff}
+.islot .dur{position:absolute;left:4px;right:4px;bottom:3px;height:3px;background:#333}.islot .dur i{display:block;height:100%}
+.slot .cnt{font-size:12px}
+.dragGhost{position:fixed;z-index:50;pointer-events:none;font-size:30px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,197,24,.25);border-radius:8px}
+.dragGhost b{position:absolute;right:2px;bottom:0;font-size:12px}
+.matsum{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:10px}.ihint{font-size:11px;opacity:.6;margin-top:8px;max-width:440px}
+.itabs button,.icats button{margin:0 4px 6px 0;padding:6px 12px;font-size:13px;background:#2a2a33;color:#ddd}.itabs button.on{background:#f5c518;color:#111}.icats button.on{background:#1d4fa8;color:#fff}
+.itabs button{font-size:15px}
+.rlist{max-height:58vh;overflow:auto;padding-right:4px}
+.recipe{gap:10px;padding:7px 4px}.recipe.ok{background:rgba(46,204,113,.07)}.ric{font-size:28px;width:40px;text-align:center}.rinfo{flex:1}
+.recipe .need{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px}.recipe .pl{font-size:10px;background:#1d4fa8;padding:1px 6px;border-radius:4px}
+.recipe button{font-size:13px;padding:7px 14px}
+#itTip{position:fixed;z-index:60;display:none;pointer-events:none;background:rgba(10,10,14,.96);border:1px solid #f5c518;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;max-width:250px}
+#toasts{position:absolute;right:12px;bottom:260px;width:300px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.toast{background:rgba(20,20,26,.85);border-left:4px solid #f5c518;padding:6px 12px;border-radius:6px;font-size:13px;animation:fadein .3s;transition:opacity .5s,transform .5s}
+.toast.loot{border-color:#2ecc71}.toast.ach{border-color:#9b59b6;font-size:14px}.toast.unlock{border-color:#3fa9f5}.toast.streak{border-color:#e67e22}.toast.out{opacity:0;transform:translateX(30px)}
+.toast small{opacity:.8}
+#fps{position:absolute;left:60px;top:170px;font:12px monospace;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;display:none}
+.fhp{position:fixed;z-index:4;pointer-events:none;transform:translate(-50%,-100%);width:170px;height:16px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.35);border-radius:4px;overflow:hidden}
+.fhp i{display:block;height:100%;transition:width .2s}.fhp span{position:absolute;inset:0;font-size:11px;font-weight:700;text-align:center;line-height:16px;white-space:nowrap;text-shadow:0 1px 2px #000}
+#achP{width:min(620px,94vw)}#achList{max-height:62vh;overflow:auto}
+#achP .ach{display:flex;align-items:center;gap:12px;padding:6px;border-bottom:1px solid #333;opacity:.45}#achP .ach.got{opacity:1}#achP .ach .ai{font-size:26px;width:36px;text-align:center}#achP .ach div{flex:1}#achP .ach small{display:block;font-size:12px;opacity:.8}#achP .ach em{font-style:normal;color:#f5c518;font-size:12px}
+.streakRow{padding:6px;font-size:15px;color:#e67e22}
+#helpBody table td:first-child{color:#f5c518;white-space:nowrap;padding-right:14px}#helpBody p{max-width:560px;font-size:13px;opacity:.85;line-height:1.5}
+@media (max-width:800px){#invBody{flex-direction:column}.igrid{grid-template-columns:repeat(8,38px)}.islot{width:38px;height:38px;font-size:18px}.edBody{flex-direction:column}.edPrev{min-height:240px}}

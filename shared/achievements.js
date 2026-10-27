@@ -1,0 +1,26 @@
+// Achievements (server-tracked, saved per device profile). xp = bonus on unlock.
+export const ACHIEVEMENTS = [
+  { id: 'night1', icon: '🌙', ru: 'Первая ночь', en: 'First Night', dru: 'Пережить одну ночь', den: 'Survive a night', xp: 30 },
+  { id: 'night5', icon: '🌒', ru: 'Старожил', en: 'Regular', dru: 'Пережить 5 ночей подряд', den: 'Survive 5 nights in one life', xp: 80 },
+  { id: 'night10', icon: '🏚', ru: 'Житель 3008', en: 'Resident of 3008', dru: 'Пережить 10 ночей подряд', den: 'Survive 10 nights in one life', xp: 200 },
+  { id: 'blood', icon: '🩸', ru: 'Кровавая луна', en: 'Blood Moon', dru: 'Пережить Кровавую ночь', den: 'Survive a Blood Night', xp: 100 },
+  { id: 'fog', icon: '🌫', ru: 'Сквозь туман', en: 'Through the Fog', dru: 'Пережить Туманный день', den: 'Survive a Foggy Day', xp: 100 },
+  { id: 'eat10', icon: '🍔', ru: 'Гурман', en: 'Foodie', dru: 'Съесть 10 продуктов', den: 'Eat 10 things', xp: 20 },
+  { id: 'break1', icon: '🔨', ru: 'Разрушитель', en: 'Wrecker', dru: 'Сломать мебель', den: 'Break a piece of furniture', xp: 10 },
+  { id: 'break25', icon: '💥', ru: 'Снос', en: 'Demolition Crew', dru: 'Сломать 25 предметов мебели', den: 'Break 25 pieces of furniture', xp: 60 },
+  { id: 'mats100', icon: '🪵', ru: 'Запасливый', en: 'Hoarder', dru: 'Собрать 100 материалов', den: 'Collect 100 materials', xp: 50 },
+  { id: 'craft1', icon: '🛠', ru: 'Мастер на все руки', en: 'Handy', dru: 'Создать предмет', den: 'Craft something', xp: 10 },
+  { id: 'craft15', icon: '⚒', ru: 'Ремесленник', en: 'Artisan', dru: 'Создать 15 предметов', den: 'Craft 15 things', xp: 60 },
+  { id: 'build10', icon: '🧱', ru: 'Строитель', en: 'Builder', dru: 'Поставить 10 предметов', den: 'Place 10 pieces', xp: 30 },
+  { id: 'base', icon: '🚩', ru: 'Своя база', en: 'Home Base', dru: 'Поставить флаг базы', den: 'Plant a claim flag', xp: 20 },
+  { id: 'anchor', icon: '🔩', ru: 'Намертво', en: 'Bolted Down', dru: 'Закрепить предмет', den: 'Anchor a piece', xp: 10 },
+  { id: 'ko1', icon: '👊', ru: 'Самооборона', en: 'Self-Defence', dru: 'Вырубить сотрудника', den: 'Knock down an employee', xp: 15 },
+  { id: 'ko10', icon: '🥊', ru: 'Гроза персонала', en: 'Staff Nightmare', dru: 'Вырубить 10 сотрудников', den: 'Knock down 10 employees', xp: 60 },
+  { id: 'trap', icon: '🪤', ru: 'Охотник', en: 'Trapper', dru: 'Поймать сотрудника в капкан', den: 'Catch an employee in a trap', xp: 30 },
+  { id: 'lv5', icon: '⭐', ru: 'Уровень 5', en: 'Level 5', dru: 'Достичь 5 уровня', den: 'Reach level 5', xp: 0 },
+  { id: 'lv10', icon: '🌟', ru: 'Уровень 10', en: 'Level 10', dru: 'Достичь 10 уровня', den: 'Reach level 10', xp: 0 },
+  { id: 'streak3', icon: '🔥', ru: 'Три дня подряд', en: 'Three-Day Streak', dru: 'Выживать 3 реальных дня подряд', den: 'Survive a night on 3 real days in a row', xp: 100 },
+  { id: 'style', icon: '🎩', ru: 'Модник', en: 'Fashionista', dru: 'Изменить внешность персонажа', den: 'Customise your avatar', xp: 10 },
+  { id: 'team', icon: '👥', ru: 'Команда', en: 'Team Player', dru: 'Вступить в команду', den: 'Join a team', xp: 15 },
+];
+export const ACH = Object.fromEntries(ACHIEVEMENTS.map(a => [a.id, a]));

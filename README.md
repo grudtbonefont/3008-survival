@@ -4,6 +4,18 @@ An original multiplayer survival game you play in the browser. You are trapped i
 
 **Play:** https://three008-survival.onrender.com
 
+## What's new in 2.4: avatar editor, inventory, crafting, destruction
+
+- **Avatar editor** (menu → «Персонаж» or pause menu): live rotating 3D preview with skin, face, hair, hats, glasses/masks, shirt and pants patterns, back accessories and body type, plus colour pickers. It also has Random and Reset buttons. Some items unlock as you level up. The avatar is saved in localStorage, validated on the server and visible to other players.
+- **Russian by default**, with an English toggle in settings. The browser language is detected.
+- **Inventory screen (I)**: hotbar and backpack grid. Drag and drop, stacking, Shift-click to split, Ctrl-click to drop one, drag outside the window to discard, tooltips, and 1–8 over an item to bind it to the hotbar.
+- **Crafting tab (C)**: categories, have/need counts per material, workbench and stove requirements, and a craft button.
+- **Chests**: a chest tab that works the same way.
+- **Server-authoritative destruction**: furniture has HP and drops materials (wood, metal, cloth, plastic, glass) based on what it is made of. There are cracks, debris, material-specific sounds, and a hammer or axe breaks things faster. At night employees smash barricades. Broken furniture respawns, except inside claimed bases.
+- **Placement UX**: grid and snap preview (green when valid, red when not), R to rotate, V or Alt+wheel to pick a height (you can place on tables and shelves), Ctrl+Z to undo.
+- **Locations**: hanging, coloured zone banners with icons and Russian names, per-zone lighting tint, and a minimap zone readout.
+- **Polish**: smoothed camera, particles, footsteps that change with the floor surface, torch and lantern lights at night, FPS counter, distance LOD, achievements panel, daily streak and level unlocks.
+
 ## What's new in 2.3: closer to the original SCP-3008 Roblox game
 2.3 also includes the 2.2 character work: blocky R6-style avatars made of boxes, with every animation, plus updated employee variants and showcase.
 
