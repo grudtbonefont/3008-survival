@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>3008 Survival — model showcase</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#1b1d22}canvas{display:block}#info{position:fixed;left:10px;top:8px;color:#ddd;font:13px Arial}</style>
+<script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
+</head><body><div id="info">Model showcase · drag to orbit · ?types=bed,sofa · ?chars</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TYPES, worldParts } from '/shared/world.js';
+import { partsGroup, makeHuman, makeEmployee, animate, nameLabel, floorTex } from '/js/models.js';
+const Q = new URLSearchParams(location.search);
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(1); R.setSize(innerWidth, innerHeight);
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap; R.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(R.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(Q.has('night') ? 0x0b0d14 : 0xbfc4c9);
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.05, 300);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8070, Q.has('night') ? 0.25 : 1.6));
+const sun = new THREE.DirectionalLight(0xfff4e0, Q.has('night') ? 0.3 : 2.2); sun.position.set(-12, 22, 16); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, far: 120 }); sun.shadow.bias = -0.0004; scene.add(sun);
+floorTex.repeat.set(60, 60);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(120, 120, 0x666666, 0x888888); grid.position.y = 0.002; grid.material.opacity = 0.35; grid.material.transparent = true; scene.add(grid);
+const rigs = [];
+const label = (t, x, y, z) => { const s = nameLabel(t); s.position.set(x, y, z); s.scale.set(1.6, 0.48, 1); scene.add(s); };
+if (!Q.has('chars')) {
+  const list = Q.get('types') ? Q.get('types').split(',') : Object.keys(TYPES);
+  const rows = [[]]; let rowW = 0; const maxW = +(Q.get('rowW') || 16);
+  for (const t of list) { const w = Math.max(TYPES[t].w, 0.8) + 1.0; if (rowW + w > maxW && rows.at(-1).length) { rows.push([]); rowW = 0; } rows.at(-1).push(t); rowW += w; }
+  let z = 0;
+  for (const row of rows) {
+    const depth = Math.max(...row.map(t => TYPES[t].d)); let x = -row.reduce((a, t) => a + Math.max(TYPES[t].w, 0.8) + 1.0, 0) / 2;
+    for (const t of row) {
+      const w = Math.max(TYPES[t].w, 0.8) + 1.0, cx = x + w / 2;
+      const g = partsGroup(worldParts({ type: t, x: cx, z, rot: +(Q.get('rot') || 0), c: +(Q.get('c') || 7) }), { shadows: true }); scene.add(g);
+      if (!Q.has('nolabels')) label(TYPES[t].name, cx, TYPES[t].h + 0.45, z);
+      x += w;
+    }
+    z -= depth + 2.2;
+  }
+  if (Q.has('human')) { const h = makeHuman(); h.g.position.set(+Q.get('human') || 0, 0, 2.2); scene.add(h.g); rigs.push([h, {}]); }
+  const bb = new THREE.Box3(); scene.traverse(o => { if (o.isMesh && o !== floor) bb.expandByObject(o); });
+  const c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3()), D = Math.max(sz.x * 0.95, sz.y * 1.6, sz.z * 1.2) + 1.5;
+  cam.position.set(c.x + D * 0.18, c.y + D * 0.42, bb.max.z + D * 0.85); window.__center = [c.x, c.y * 0.7, c.z];
+} else {
+  const night = Q.has('night'), pose = Q.get('pose') || 'idle';
+  const people = [
+    [makeHuman({ shirt: 0x3b6fd6, pants: 0x2c3e66, skin: 0xf0c8a0, hair: 0x3b2a1e }), 'Player'],
+    [makeHuman({ shirt: 0xd04a3a, pants: 0x34352f, skin: 0x8d5a3b, hair: 0x111111, hairStyle: 1 }), 'Player'],
+    [makeEmployee('staff'), 'Staff'], [makeEmployee('runner'), 'Runner'], [makeEmployee('giant'), 'Giant'],
+  ];
+  people.forEach(([h, n], i) => {
+    h.g.position.set((i - 2) * 1.35, 0, 0); scene.add(h.g);
+    const st = { moving: pose === 'walk' || pose === 'run', speed: pose === 'run' ? 1.5 : 1, air: pose === 'jump', hostile: night && h.npc, emote: ['wave', 'sit', 'dance', 'point', 'cheer'].includes(pose) ? pose : null };
+    rigs.push([h, st]);
+    if (!Q.has('nolabels')) label(n, (i - 2) * 1.35, 2.95, 0);
+  });
+  cam.position.set(1.2, 1.7, 7.2); window.__center = [0, 1.05, 0];
+}
+const ctl = new OrbitControls(cam, R.domElement); ctl.target.set(...window.__center); ctl.update();
+window.view = (px, py, pz, tx, ty, tz) => { cam.position.set(px, py, pz); ctl.target.set(tx, ty, tz); ctl.update(); };
+window.setAnimT = (sec, phase) => { for (const [h, st] of rigs) { if (phase != null) h.phase = phase; for (let i = 0; i < sec * 60; i++) animate(h, 1 / 60, st); } };
+window.setYawAll = (y) => { for (const [h] of rigs) h.g.rotation.y = y; };
+setAnimT(1.2);
+let last = performance.now();
+R.setAnimationLoop(() => { const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now; if (!Q.has('freeze')) for (const [h, st] of rigs) animate(h, dt, st); R.render(scene, cam); });
+window.__ready = true;
+addEventListener('resize', () => { R.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+</script></body></html>

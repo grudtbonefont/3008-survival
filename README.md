@@ -1,8 +1,16 @@
-# 3008 Survival v2.0.0
+# 3008 Survival v2.1.0
 
 An original multiplayer survival game you play in the browser. You are trapped in an endless, procedurally generated furniture store. By day the faceless employees ignore you. When the store closes they hunt in groups, so scavenge, craft and build a fort before night falls. Everything in the game (models, textures, sounds) is original and made in code.
 
 **Play:** https://three008-survival.onrender.com
+
+## What's new in 2.1 — model rework
+- All 33 furniture types rebuilt from a shared catalogue (`shared/furniture.js`) at real-world dimensions, with bevelled/rounded edges, handles, drawer seams, pillows, blankets, lampshades, books and consistent palettes. Everything stands on the floor and snaps to the grid.
+- `node tools/check-furniture.mjs` validates every model: floor contact, footprint, height, and no floating parts.
+- Furniture is merged into one mesh per material per chunk (rounded-box / cylinder / sphere templates + vertex colours), which keeps draw calls low.
+- Players use a jointed humanoid rig (neck, shoulders, elbows, hands, hips, knees, feet) with smooth idle / walk / run / jump / carry / emote animations.
+- Employees share the rig in a yellow-shirt/blue-pants uniform with a faceless waxy head. Variants: Staff, the thin long-armed Runner, and the tall Giant. At night their red eyes glow.
+- Model showcase: open `/showcase.html` (`?types=bed,sofa`, `?chars&night&pose=walk`).
 
 ## Features
 - **World:** infinite seeded store in 24 m chunks with themed zones (Bedrooms, Kitchens, Showroom, Restaurant, Bathrooms, Offices, Warehouse, Clock Atrium…) and dozens of furniture types.

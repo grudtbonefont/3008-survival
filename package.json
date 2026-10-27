@@ -1,6 +1,6 @@
 {
   "name": "3008-survival",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Original multiplayer infinite-furniture-store survival game (inspired by SCP-3008)",
   "type": "module",
   "main": "server.js",

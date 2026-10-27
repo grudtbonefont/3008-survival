@@ -124,7 +124,7 @@ function rebuildFurn(ch) {
   for (const f of world.chunk(ch.cx, ch.cz).furn) if (!world.removed.has(f.id)) for (const p of worldParts(f)) parts.push(p);
   ch.furnG = partsGroup(parts, { shadows: Q.shadows }); ch.g.add(ch.furnG);
 }
-function setChunkShadows(ch) { ch.furnG.traverse(o => { if (o.isInstancedMesh && o.material !== MATS.e) { o.castShadow = Q.shadows; o.receiveShadow = Q.shadows; } }); }
+function setChunkShadows(ch) { ch.furnG.traverse(o => { if (o.isMesh && !o.userData.emissive) { o.castShadow = Q.shadows; o.receiveShadow = Q.shadows; } }); }
 function unloadChunk(key) {
   const ch = chunks.get(key); scene.remove(ch.g); disposeGroup(ch.g);
   ch.signs.forEach(s => s.material.map.dispose());
