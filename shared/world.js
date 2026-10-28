@@ -1,5 +1,5 @@
 // Shared deterministic world generation, navigation and collision (server + client).
-export const VERSION = '2.5.0';
+export const VERSION = '2.6.0';
 export const CHUNK = 24;
 export const CEIL = 6;
 // Day/night lengths follow the Roblox 3008 wiki: a Day (and Foggy Day) lasts 6 minutes, a Night (and Blood Night) 5 minutes.

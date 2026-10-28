@@ -16,20 +16,28 @@ const sfx = new Sfx();
 
 // ---------------- settings ----------------
 const QUALITY = {
-  low: { radius: 1, pr: 0.7, shadows: false, lights: 4, shadowSize: 512, flashShadow: false },
-  med: { radius: 2, pr: 1, shadows: true, lights: 8, shadowSize: 1024, flashShadow: false },
-  high: { radius: 2, pr: Math.min(devicePixelRatio, 2), shadows: true, lights: 12, shadowSize: 2048, flashShadow: true },
+  low: { radius: 1, pr: Math.min(0.65, devicePixelRatio), shadows: false, lights: 3, shadowSize: 512, flashShadow: false, fogScale: 0.55, grain: false },
+  med: { radius: 2, pr: Math.min(1, devicePixelRatio), shadows: true, lights: 8, shadowSize: 1024, flashShadow: false, fogScale: 0.85, grain: true },
+  high: { radius: 2, pr: Math.min(devicePixelRatio, 2), shadows: true, lights: 12, shadowSize: 2048, flashShadow: true, fogScale: 1, grain: true },
 };
-const settings = Object.assign({ sens: 1, quality: isTouch ? 'low' : 'med', vol: 0.7, name: '', invertY: false, tips: true, fps: false, hud: 'min', map: false }, JSON.parse(localStorage.getItem('3008s') || '{}'));
+function pickAutoQuality() {
+  const mem = navigator.deviceMemory || (isTouch ? 2 : 8);
+  const cores = navigator.hardwareConcurrency || 4;
+  if (isTouch || mem <= 4 || cores <= 4) return 'low';
+  if (mem >= 8 && cores >= 8 && devicePixelRatio >= 1.5) return 'high';
+  return 'med';
+}
+const settings = Object.assign({ sens: 1, quality: 'auto', vol: 0.7, name: '', invertY: false, tips: true, fps: false, hud: 'min', map: false }, JSON.parse(localStorage.getItem('3008s') || '{}'));
 const saveSettings = () => localStorage.setItem('3008s', JSON.stringify(settings));
-let Q = QUALITY[settings.quality] || QUALITY.med;
+function resolveQuality() { const q = settings.quality === 'auto' ? pickAutoQuality() : settings.quality; return QUALITY[q] || QUALITY.med; }
+let Q = resolveQuality();
 
 function buildSettings(el) {
   el.innerHTML = `
   <label>${t('language')} <select data-lang><option value="ru">Русский</option><option value="en">English</option></select></label>
   <label>${t('sens')} <input type="range" min="0.2" max="3" step="0.1" data-s="sens"></label>
   <label>${t('vol')} <input type="range" min="0" max="1" step="0.05" data-s="vol"></label>
-  <label>${t('gfx')} <select data-s="quality"><option value="low">${t('low')}</option><option value="med">${t('med')}</option><option value="high">${t('high')}</option></select></label>
+  <label>${t('gfx')} <select data-s="quality"><option value="auto">${t('gfxAuto')}</option><option value="low">${t('low')}</option><option value="med">${t('med')}</option><option value="high">${t('high')}</option></select></label>
   <label>${t('invY')} <input type="checkbox" data-s="invertY"></label>
   <label>${t('tips')} <input type="checkbox" data-s="tips"></label>
   <label>${t('hudMode')} <select data-s="hud"><option value="full">${t('hudFull')}</option><option value="min">${t('hudMin')}</option><option value="off">${t('hudOff')}</option></select></label>
@@ -48,7 +56,7 @@ function buildSettings(el) {
 document.querySelectorAll('.settings').forEach(buildSettings);
 
 // ---------------- renderer / scene ----------------
-const renderer = new THREE.WebGLRenderer({ antialias: settings.quality !== 'low', powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: resolveQuality() !== QUALITY.low, powerPreference: 'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -70,7 +78,7 @@ const panelEmissive = new THREE.Color();
 const flickerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
 function applySettings() {
-  Q = QUALITY[settings.quality] || QUALITY.med;
+  Q = resolveQuality();
   renderer.setPixelRatio(Q.pr);
   renderer.shadowMap.enabled = Q.shadows;
   sun.castShadow = Q.shadows; sun.shadow.mapSize.set(Q.shadowSize, Q.shadowSize); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
@@ -89,7 +97,7 @@ let me = { x: 0, y: 0, z: 0, vy: 0, ry: 0, onGround: true };
 let stats = { hp: 100, hunger: 100, energy: 100, inv: [], carry: null, dead: false, xp: 0, lv: 1, days: 0, kos: 0, pvp: false, sleeping: false, party: [] };
 let _myEm = null;
 let sel = 0, stamina = 100, gameT = 0, dayN = 1, nightF = 0, flashOn = false, rotPlace = 0, emote = null;
-let yaw = Math.PI, pitch = 0.25, camDist = 5.5, playing = false;
+let yaw = Math.PI, pitch = 0.25, tyaw = Math.PI, tpitch = 0.25, camDist = 5.5, playing = false;
 const keys = {};
 const picked = new Set(), drops = new Map();
 const others = new Map(), npcs = new Map();
@@ -265,8 +273,8 @@ function connect() {
     const prevLv = stats.lv, prevHp = stats.hp, wasDead = stats.dead;
     stats = s; if (s.lv > prevLv && prevLv) sfx.play('levelup');
     if (s.hp < prevHp - 0.5 && !s.dead) hurtFlash();
-    if (s.dead && !wasDead) { sfx.play('death'); $('death').classList.remove('hidden'); document.exitPointerLock?.(); }
-    if (!s.dead && wasDead) $('death').classList.add('hidden');
+    if (s.dead && !wasDead) { sfx.play('death'); $('death').classList.remove('hidden'); syncPanelClass(); document.exitPointerLock?.(); }
+    if (!s.dead && wasDead) { $('death').classList.add('hidden'); syncPanelClass(); }
     if (!s.chest && chestData) { chestData = null; if (invTab === 'chest') invTab = 'craft'; }
     updateHud(); updateHotbar();
     if (invOpen && !drag) { const sig = JSON.stringify([s.inv, s.carry, s.lv, nearFlag('bench'), nearFlag('stove')]); if (sig !== invSig) renderInv(); }
@@ -348,7 +356,7 @@ function updateHotbar() {
     d.innerHTML = `<small>${i + 1}</small>${it ? ICON[it.t] : ''}` + (it && it.d != null ? `<div class="dur${it.d / ITEMS[it.t].dur < 0.25 ? ' low' : ''}"><i style="width:${it.d / ITEMS[it.t].dur * 100}%"></i></div>` : '');
     if (it && it.n > 1) d.innerHTML += `<b class="cnt">${it.n}</b>`;
     d.title = it ? iname(it.t) : t('empty');
-    d.onclick = () => { sel = i; updateHotbar(); };
+    d.onpointerdown = (e) => { if (e.button && e.button !== 0) return; e.preventDefault(); sel = i; updateHotbar(); sfx.play('click'); };
     hb.appendChild(d);
   }
   const it = stats.inv?.[sel];
@@ -432,11 +440,12 @@ const matColor = (f) => MAT_COL[matOf(f.type)] || 0xa0743f;
 
 // ---------------- inventory / crafting / chest panel ----------------
 let hoverSlot = -1, drag = null, invSig = '';
-function openInv() { invOpen = true; $('inv').classList.remove('hidden'); document.exitPointerLock?.(); renderInv(); sfx.play('click'); }
+function openInv() { invOpen = true; $('inv').classList.remove('hidden'); document.exitPointerLock?.(); renderInv(); sfx.play('click'); syncPanelClass(); }
 function closeInv() {
   invOpen = false; $('inv').classList.add('hidden'); hideTip(); hoverSlot = -1;
   if (chestData) { socket.emit('chestclose'); chestData = null; }
   if (invTab === 'chest') invTab = 'craft';
+  syncPanelClass();
   if (!isTouch && playing) lockPointer();
 }
 function itemTip(it) {
@@ -543,7 +552,7 @@ function toast(html, cls = '', ms = 3500) {
 function openAch() {
   const el = $('achList'); $('achTitleH').textContent = t('achTitle') + ` — ${myAch.size}/${ACHIEVEMENTS.length}`;
   el.innerHTML = `<div class="streakRow">${svg('fire', 14)} ${t('streakDays')}: <b>${myStreak}</b></div>` + ACHIEVEMENTS.map(a => `<div class="ach${myAch.has(a.id) ? ' got' : ''}"><span class="ai">${achIc(a, 18)}</span><div><b>${esc(nm(a))}</b><small>${esc(lang === 'ru' ? a.dru : a.den)}</small></div><em>+${a.xp} XP</em></div>`).join('');
-  $('achP').classList.remove('hidden'); document.exitPointerLock?.();
+  $('achP').classList.remove('hidden'); document.exitPointerLock?.(); syncPanelClass();
 }
 
 // ---------------- destruction visuals ----------------
@@ -601,6 +610,7 @@ function applyStatic() {
   document.querySelectorAll('.settings').forEach(buildSettings);
   $('helpBody').innerHTML = HELP[lang];
   document.querySelectorAll('[data-ic]').forEach(e => { if (e.dataset.icDone !== '1') { e.insertAdjacentHTML('afterbegin', svg(e.dataset.ic, e.closest('#tbtns') ? 22 : 18)); e.dataset.icDone = '1'; } });
+  updateRotateHint?.();
   applyHud();
 }
 $('setBtn').onclick = () => $('menuSettings').classList.toggle('collapsed');
@@ -612,8 +622,8 @@ function applyLang(l) {
   if (invOpen) renderInv(); if (lastBoard) renderBoard(lastBoard); tip(tipIdx);
 }
 const HELP = {
-  ru: `<table><tr><td>WASD</td><td>ходить · <b>Shift</b> бег · <b>Пробел</b> прыжок</td></tr><tr><td>Мышь</td><td>камера · колесо — отдалить</td></tr><tr><td>ЛКМ</td><td>удар / ломать мебель / поставить</td></tr><tr><td>ПКМ / X</td><td>съесть / использовать</td></tr><tr><td>E</td><td>подобрать · взять мебель · открыть дверь/сундук (Shift+E — взять)</td></tr><tr><td>Q / R / V</td><td>поставить · повернуть · высота (на столы и полки)</td></tr><tr><td>Ctrl+Z</td><td>забрать последнее поставленное</td></tr><tr><td>I / C</td><td>инвентарь · крафт</td></tr><tr><td>L</td><td>закрепить свою постройку</td></tr><tr><td>Z</td><td>спать у кровати</td></tr><tr><td>F / T</td><td>фонарик · метка</td></tr><tr><td>G</td><td>выбросить предмет</td></tr><tr><td>1–8</td><td>панель быстрого доступа</td></tr><tr><td>B J K U Y</td><td>эмоции</td></tr><tr><td>H</td><td>интерфейс: полный / минимальный / скрыт</td></tr><tr><td>N</td><td>миникарта</td></tr><tr><td>Tab / Enter</td><td>таблица · чат</td></tr></table><p>Ломай мебель (лучше молотком или топором), чтобы получить дерево, металлолом, ткань, пластик и стекло. Крафти верстак — у него открываются стены, двери и ловушки. Сломанная мебель со временем возвращается, но не на территории чужой базы. Ночью сотрудники ломают баррикады — укрепляй крепость!</p>`,
-  en: `<table><tr><td>WASD</td><td>move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr><tr><td>Mouse</td><td>camera · wheel zooms</td></tr><tr><td>LMB</td><td>attack / break furniture / place</td></tr><tr><td>RMB / X</td><td>eat / use</td></tr><tr><td>E</td><td>pick up · grab furniture · open door/chest (Shift+E grabs)</td></tr><tr><td>Q / R / V</td><td>place · rotate · height (onto tables and shelves)</td></tr><tr><td>Ctrl+Z</td><td>pick your last piece back up</td></tr><tr><td>I / C</td><td>inventory · crafting</td></tr><tr><td>L</td><td>anchor your build</td></tr><tr><td>Z</td><td>sleep near a bed</td></tr><tr><td>F / T</td><td>flashlight · waypoint</td></tr><tr><td>G</td><td>drop item</td></tr><tr><td>1–8</td><td>hotbar</td></tr><tr><td>B J K U Y</td><td>emotes</td></tr><tr><td>H</td><td>interface: full / minimal / hidden</td></tr><tr><td>N</td><td>minimap</td></tr><tr><td>Tab / Enter</td><td>leaderboard · chat</td></tr></table><p>Break furniture (a hammer or axe is fastest) for wood, scrap, cloth, plastic and glass. Craft a workbench to unlock walls, doors and traps. Broken furniture grows back over time, but never inside someone's base. At night the employees smash barricades, so reinforce your fort!</p>`,
+  ru: `<table><tr><td>WASD</td><td>ходить · <b>Shift</b> бег · <b>Пробел</b> прыжок</td></tr><tr><td>Мышь</td><td>камера · колесо — отдалить</td></tr><tr><td>ЛКМ</td><td>удар / ломать мебель / поставить</td></tr><tr><td>ПКМ / X</td><td>съесть / использовать</td></tr><tr><td>E</td><td>подобрать · взять мебель · открыть дверь/сундук (Shift+E — взять)</td></tr><tr><td>Q / R / V</td><td>поставить · повернуть · высота (на столы и полки)</td></tr><tr><td>Ctrl+Z</td><td>забрать последнее поставленное</td></tr><tr><td>I / C</td><td>инвентарь · крафт</td></tr><tr><td>L</td><td>закрепить свою постройку</td></tr><tr><td>Z</td><td>спать у кровати</td></tr><tr><td>F / T</td><td>фонарик · метка</td></tr><tr><td>G</td><td>выбросить предмет</td></tr><tr><td>1–8</td><td>панель быстрого доступа</td></tr><tr><td>B J K U Y</td><td>эмоции</td></tr><tr><td>H</td><td>интерфейс: полный / минимальный / скрыт</td></tr><tr><td>N</td><td>миникарта</td></tr><tr><td>Tab / Enter</td><td>таблица · чат</td></tr><tr><td>F1 / ?</td><td>эта подсказка</td></tr><tr><td>Esc / M</td><td>пауза · настройки</td></tr></table><p>Ломай мебель (лучше молотком или топором), чтобы получить дерево, металлолом, ткань, пластик и стекло. Крафти верстак — у него открываются стены, двери и ловушки. Сломанная мебель со временем возвращается, но не на территории чужой базы. Ночью сотрудники ломают баррикады — укрепляй крепость!</p>`,
+  en: `<table><tr><td>WASD</td><td>move · <b>Shift</b> sprint · <b>Space</b> jump</td></tr><tr><td>Mouse</td><td>camera · wheel zooms</td></tr><tr><td>LMB</td><td>attack / break furniture / place</td></tr><tr><td>RMB / X</td><td>eat / use</td></tr><tr><td>E</td><td>pick up · grab furniture · open door/chest (Shift+E grabs)</td></tr><tr><td>Q / R / V</td><td>place · rotate · height (onto tables and shelves)</td></tr><tr><td>Ctrl+Z</td><td>pick your last piece back up</td></tr><tr><td>I / C</td><td>inventory · crafting</td></tr><tr><td>L</td><td>anchor your build</td></tr><tr><td>Z</td><td>sleep near a bed</td></tr><tr><td>F / T</td><td>flashlight · waypoint</td></tr><tr><td>G</td><td>drop item</td></tr><tr><td>1–8</td><td>hotbar</td></tr><tr><td>B J K U Y</td><td>emotes</td></tr><tr><td>H</td><td>interface: full / minimal / hidden</td></tr><tr><td>N</td><td>minimap</td></tr><tr><td>Tab / Enter</td><td>leaderboard · chat</td></tr><tr><td>F1 / ?</td><td>this hint</td></tr><tr><td>Esc / M</td><td>pause · settings</td></tr></table><p>Break furniture (a hammer or axe is fastest) for wood, scrap, cloth, plastic and glass. Craft a workbench to unlock walls, doors and traps. Broken furniture grows back over time, but never inside someone's base. At night the employees smash barricades, so reinforce your fort!</p>`,
 };
 const TIPS = {
   ru: ['Добро пожаловать в магазин! День длится 6 минут, ночь — 5. Еду завозят по понедельникам и пятницам — больше всего в столовой.',
@@ -623,7 +633,7 @@ const TIPS = {
     'Неся мебель: R — повернуть, V — выбрать высоту (можно ставить на столы), Ctrl+Z — забрать обратно.',
     'Флаг базы защищает твою крепость: внутри неё мебель не появляется снова, и ты возрождаешься там.',
     'Нажми «Персонаж» в меню — новые причёски, шапки и узоры открываются с уровнем.',
-    'F — фонарик, T — метка, L — закрепить, N — карта, H — интерфейс, Tab — таблица, Enter — чат.'],
+    'F — фонарик, T — метка, L — закрепить, N — карта, H — интерфейс, F1 — управление, Tab — таблица, Enter — чат.'],
   en: ['Welcome to the store! Days last 6 minutes, nights 5. Food restocks every Monday and Friday — the Cafeteria has the most.',
     'Employees are harmless by day. At night they hunt anyone they spot and smash barricades. Build a fort!',
     'Break furniture with LMB for materials. A hammer or axe breaks things much faster.',
@@ -631,7 +641,7 @@ const TIPS = {
     'While carrying: R rotates, V picks the height (you can place on tables), Ctrl+Z picks it back up.',
     'A Claim Flag protects your fort: furniture never respawns inside it and you respawn there.',
     'Press «Avatar» in the menu — new hair, hats and patterns unlock as you level up.',
-    'F flashlight, T waypoint, L anchor, N map, H interface, Tab leaderboard, Enter chat.'],
+    'F flashlight, T waypoint, L anchor, N map, H interface, F1 controls, Tab leaderboard, Enter chat.'],
 };
 let tipIdx = 0, tipTimer;
 function tip(i) {
@@ -643,37 +653,55 @@ function tip(i) {
 
 // ---------------- input ----------------
 function lockPointer() { try { const r = renderer.domElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* needs a user gesture */ } }
-let chatOpen = false, locked = false, kx = 0, kz = 0, shake = 0;
+let chatOpen = false, locked = false, kx = 0, kz = 0, shake = 0, escOpenedPause = false;
 const canvas = renderer.domElement;
 canvas.addEventListener('click', () => { if (playing && !isTouch && !locked && !anyPanel()) lockPointer(); });
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (!locked && playing && !chatOpen && !anyPanel() && !stats.dead && !isTouch) openPause(); });
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  if (!locked && playing && !chatOpen && !anyPanel() && !stats.dead && !isTouch) { openPause(); escOpenedPause = true; }
+});
 const anyPanel = () => ['pause', 'help', 'inv', 'death', 'achP'].some(id => !$(id).classList.contains('hidden')) || !!$('avatarEd');
+function syncPanelClass() { document.body.classList.toggle('panel-open', anyPanel() || chatOpen || !$('menu').classList.contains('hidden')); }
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   const s = 0.0022 * settings.sens;
-  yaw -= e.movementX * s; pitch += e.movementY * s * (settings.invertY ? -1 : 1);
-  pitch = Math.max(-0.6, Math.min(1.25, pitch));
+  tyaw -= e.movementX * s;
+  tpitch += e.movementY * s * (settings.invertY ? -1 : 1);
+  tpitch = Math.max(-0.6, Math.min(1.25, tpitch));
 });
 document.addEventListener('wheel', (e) => { if (invOpen) return; if (stats.carry && (e.altKey || keys.KeyV)) { cycleHeight(e.deltaY > 0 ? -1 : 1); return; } camDist = Math.max(2.2, Math.min(10, camDist + e.deltaY * 0.004)); });
 document.addEventListener('mousedown', (e) => { if (!locked || !playing) return; if (e.button === 0) primary(); if (e.button === 2) useItem(); });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
-function openPause() { $('pause').classList.remove('hidden'); if (document.pointerLockElement) document.exitPointerLock(); }
+function openPause() { $('pause').classList.remove('hidden'); $('keysHint').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); syncPanelClass(); }
+function resumePlay() { $('pause').classList.add('hidden'); $('help').classList.add('hidden'); syncPanelClass(); if (!isTouch && playing && !stats.dead) lockPointer(); }
 $('menuBtn').onclick = () => openPause();
-$('resumeBtn').onclick = () => { $('pause').classList.add('hidden'); if (!isTouch) lockPointer(); };
-$('helpBtn').onclick = () => $('help').classList.remove('hidden');
-$('helpClose').onclick = () => $('help').classList.add('hidden');
-$('respawnBtn').onclick = () => { socket.emit('respawn'); $('death').classList.add('hidden'); if (!isTouch) lockPointer(); };
+$('resumeBtn').onclick = () => resumePlay();
+$('helpBtn').onclick = () => { $('help').classList.remove('hidden'); syncPanelClass(); };
+$('helpClose').onclick = () => { $('help').classList.add('hidden'); syncPanelClass(); if (!$('pause').classList.contains('hidden')) return; if (!isTouch) lockPointer(); };
+$('respawnBtn').onclick = () => { socket.emit('respawn'); $('death').classList.add('hidden'); syncPanelClass(); if (!isTouch) lockPointer(); };
 function toggleCraft() { if (invOpen && invTab === 'craft') closeInv(); else { invTab = 'craft'; openInv(); } }
+function toggleKeysHint() {
+  const el = $('keysHint');
+  if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+  el.innerHTML = HELP[lang]; el.classList.remove('hidden');
+}
+function closePanelsAndResume() {
+  ['help', 'pause', 'achP'].forEach(id => $(id).classList.add('hidden'));
+  $('keysHint').classList.add('hidden');
+  syncPanelClass();
+  if (!isTouch && playing && !stats.dead && !invOpen && !chatOpen) lockPointer();
+}
 
 addEventListener('keydown', (e) => {
   if (!playing) return;
+  if (e.code === 'F1' || (e.key === '?' || (e.shiftKey && e.code === 'Slash'))) { e.preventDefault(); toggleKeysHint(); return; }
   if (chatOpen) {
     if (e.key === 'Enter') { const v = $('chatInput').value.trim(); if (v) socket.emit('chat', v); closeChat(); }
     else if (e.key === 'Escape') closeChat();
     return;
   }
   if (e.key === 'Tab' && !invOpen) { e.preventDefault(); $('board').classList.remove('hidden'); return; }
-  if (e.key === 'Enter') { chatOpen = true; const i = $('chatInput'); i.style.display = 'block'; i.focus(); document.exitPointerLock?.(); $('chat').classList.add('active', 'open'); return; }
+  if (e.key === 'Enter') { chatOpen = true; const i = $('chatInput'); i.style.display = 'block'; i.focus(); document.exitPointerLock?.(); $('chat').classList.add('active', 'open'); syncPanelClass(); return; }
   const k = e.code; keys[k] = true;
   if (stats.dead) return;
   if (invOpen) {
@@ -682,9 +710,14 @@ addEventListener('keydown', (e) => {
     if (k === 'KeyC') { invTab = 'craft'; renderInv(); }
     return;
   }
+  if (k === 'Escape') {
+    if (escOpenedPause) { escOpenedPause = false; return; } // browser unlock already opened pause
+    if (!$('keysHint').classList.contains('hidden')) { $('keysHint').classList.add('hidden'); return; }
+    if (!$('help').classList.contains('hidden') || !$('achP').classList.contains('hidden') || !$('pause').classList.contains('hidden')) { closePanelsAndResume(); return; }
+    openPause(); return;
+  }
   if (k === 'KeyC') toggleCraft();
   if (k === 'KeyI') { if (invTab === 'chest' && !chestData) invTab = 'craft'; openInv(); }
-  if (k === 'Escape') { ['help', 'pause', 'achP'].forEach(id => $(id).classList.add('hidden')); }
   if ((e.ctrlKey && k === 'KeyZ') || k === 'Backspace') { e.preventDefault(); socket.emit('undo'); return; }
   if (k === 'KeyV' && stats.carry && !e.repeat) cycleHeight(e.shiftKey ? -1 : 1);
   if (/^Digit[1-8]$/.test(k)) { sel = +k.slice(5) - 1; updateHotbar(); sfx.play('click'); }
@@ -705,8 +738,24 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; if (e.key === 'Tab') $('board').classList.add('hidden'); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-function closeChat() { chatOpen = false; const i = $('chatInput'); i.value = ''; i.style.display = 'none'; i.blur(); $('chat').classList.remove('open'); chatPing(); if (!isTouch) lockPointer(); }
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+function closeChat() { chatOpen = false; const i = $('chatInput'); i.value = ''; i.style.display = 'none'; i.blur(); $('chat').classList.remove('open'); chatPing(); syncPanelClass(); if (!isTouch) lockPointer(); }
+function onResize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  updateRotateHint();
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 200));
+function updateRotateHint() {
+  const el = $('rotateHint'); if (!el) return;
+  const need = isTouch && playing && innerHeight > innerWidth + 40;
+  el.classList.toggle('hidden', !need);
+}
+function tryFullscreen() {
+  if (!isTouch) return;
+  const root = document.documentElement;
+  (root.requestFullscreen || root.webkitRequestFullscreen)?.call(root)?.catch?.(() => {});
+}
 
 // ---------------- actions ----------------
 const fwd = () => ({ x: -Math.sin(yaw), z: -Math.cos(yaw) });
@@ -811,31 +860,71 @@ function updateGhost() {
 const gridH = new THREE.GridHelper(4, 8, 0xffffff, 0xffffff); gridH.material.transparent = true; gridH.material.opacity = 0.45; gridH.material.depthWrite = false; gridH.visible = false; scene.add(gridH);
 
 // ---------------- touch controls ----------------
-const joy = { x: 0, y: 0, id: null };
+const joy = { x: 0, y: 0, id: null, ox: 0, oy: 0 };
+let look = null;
 if (isTouch) {
+  document.documentElement.classList.add('touch');
   $('touch').classList.remove('hidden');
-  const j = $('joy'), knob = j.firstElementChild;
-  j.addEventListener('touchstart', e => { joy.id = e.changedTouches[0].identifier; e.preventDefault(); });
-  j.addEventListener('touchmove', e => {
-    for (const t of e.changedTouches) if (t.identifier === joy.id) {
-      const r = j.getBoundingClientRect(), dx = t.clientX - r.left - r.width / 2, dy = t.clientY - r.top - r.height / 2, l = Math.min(1, Math.hypot(dx, dy) / 55), a = Math.atan2(dy, dx);
-      joy.x = Math.cos(a) * l; joy.y = Math.sin(a) * l; knob.style.transform = `translate(${joy.x * 40}px,${joy.y * 40}px)`;
-    } e.preventDefault();
-  });
-  j.addEventListener('touchend', () => { joy.x = joy.y = 0; joy.id = null; knob.style.transform = ''; });
-  let look = null;
-  canvas.addEventListener('touchstart', e => { const t = e.changedTouches[0]; look = { id: t.identifier, x: t.clientX, y: t.clientY }; });
-  canvas.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (look && t.identifier === look.id) { yaw -= (t.clientX - look.x) * 0.006 * settings.sens; pitch = Math.max(-0.6, Math.min(1.25, pitch + (t.clientY - look.y) * 0.006 * settings.sens)); look.x = t.clientX; look.y = t.clientY; } e.preventDefault(); });
+  const joyEl = $('joy'), knob = joyEl.firstElementChild, zone = $('joyZone'), lookZ = $('lookZone');
+  const placeJoy = (x, y) => {
+    joy.ox = x; joy.oy = y;
+    joyEl.style.left = (x - 55) + 'px'; joyEl.style.top = (y - 55) + 'px';
+    joyEl.classList.remove('hidden'); knob.style.transform = '';
+  };
+  const moveJoy = (x, y) => {
+    const dx = x - joy.ox, dy = y - joy.oy, l = Math.min(1, Math.hypot(dx, dy) / 52), a = Math.atan2(dy, dx);
+    joy.x = Math.cos(a) * l; joy.y = Math.sin(a) * l;
+    knob.style.transform = `translate(${joy.x * 36}px,${joy.y * 36}px)`;
+  };
+  const endJoy = () => { joy.x = joy.y = 0; joy.id = null; joyEl.classList.add('hidden'); knob.style.transform = ''; };
+  zone.addEventListener('touchstart', e => {
+    if (anyPanel() || chatOpen) return;
+    const t = e.changedTouches[0]; joy.id = t.identifier; placeJoy(t.clientX, t.clientY); e.preventDefault();
+  }, { passive: false });
+  zone.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) if (t.identifier === joy.id) moveJoy(t.clientX, t.clientY);
+    e.preventDefault();
+  }, { passive: false });
+  const joyEnd = e => { for (const t of e.changedTouches) if (t.identifier === joy.id) endJoy(); };
+  zone.addEventListener('touchend', joyEnd); zone.addEventListener('touchcancel', joyEnd);
+  lookZ.addEventListener('touchstart', e => {
+    if (anyPanel() || chatOpen) return;
+    const t = e.changedTouches[0]; look = { id: t.identifier, x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  lookZ.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) if (look && t.identifier === look.id) {
+      const sc = 0.0045 * settings.sens;
+      tyaw -= (t.clientX - look.x) * sc;
+      tpitch = Math.max(-0.6, Math.min(1.25, tpitch + (t.clientY - look.y) * sc * (settings.invertY ? -1 : 1)));
+      look.x = t.clientX; look.y = t.clientY;
+    }
+    e.preventDefault();
+  }, { passive: false });
+  lookZ.addEventListener('touchend', e => { for (const t of e.changedTouches) if (look && t.identifier === look.id) look = null; });
+  lookZ.addEventListener('touchcancel', () => { look = null; });
   document.querySelectorAll('#tbtns button').forEach(b => {
     const k = b.dataset.k;
     b.addEventListener('touchstart', e => {
-      e.preventDefault(); sfx.init();
-      if (k === 'jump') keys.Space = true; if (k === 'sprint') keys.ShiftLeft = !keys.ShiftLeft;
-      if (k === 'attack') primary(); if (k === 'use') interact(); if (k === 'place') { if (stats.carry) placeCarry(); else rotPlace = (rotPlace + 1) & 3; }
-      if (k === 'eat') useItem(); if (k === 'sleep') socket.emit(stats.sleeping ? 'wake' : 'sleep'); if (k === 'craft') toggleCraft();
-    });
+      e.preventDefault(); e.stopPropagation(); sfx.init();
+      if (k === 'jump') keys.Space = true;
+      if (k === 'sprint') { keys.ShiftLeft = !keys.ShiftLeft; b.classList.toggle('on', !!keys.ShiftLeft); }
+      if (k === 'attack') primary();
+      if (k === 'use') interact();
+      if (k === 'place') { if (stats.carry) placeCarry(); else rotPlace = (rotPlace + 1) & 3; }
+      if (k === 'eat') useItem();
+      if (k === 'inv') { if (invOpen) closeInv(); else { if (invTab === 'chest' && !chestData) invTab = 'craft'; openInv(); } }
+      if (k === 'craft') toggleCraft();
+      if (k === 'chat') {
+        if (chatOpen) closeChat();
+        else { chatOpen = true; const i = $('chatInput'); i.style.display = 'block'; i.focus(); $('chat').classList.add('active', 'open'); syncPanelClass(); }
+      }
+      if (k === 'menu') openPause();
+    }, { passive: false });
     b.addEventListener('touchend', () => { if (k === 'jump') keys.Space = false; });
   });
+  // prevent page scroll / pinch zoom while playing
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('touchmove', e => { if (playing && !anyPanel() && e.target.closest?.('#touch,#hud,#game')) e.preventDefault(); }, { passive: false });
 }
 
 // ---------------- main menu ----------------
@@ -844,7 +933,7 @@ $('playBtn').onclick = startGame;
 $('avatarBtn').onclick = () => { sfx.init(); sfx.play('click'); openEditor({ level: lastLv, onSave: (av) => { saveAvatar(av); if (socket) socket.emit('setAvatar', av); if (myModel) rebuildMe(av); } }); };
 $('achBtn').onclick = () => openAch();
 $('pAchBtn').onclick = () => openAch();
-$('achClose').onclick = () => $('achP').classList.add('hidden');
+$('achClose').onclick = () => { $('achP').classList.add('hidden'); syncPanelClass(); };
 $('pAvBtn').onclick = () => $('avatarBtn').onclick();
 $('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') startGame(); });
 function startGame() {
@@ -852,7 +941,9 @@ function startGame() {
   myName = $('nameInput').value.trim().slice(0, 16); settings.name = myName; saveSettings();
   $('menu').classList.add('hidden'); $('hud').classList.remove('hidden');
   playing = true; if (!socket) connect();
+  syncPanelClass();
   if (!isTouch && !params.has('autoplay')) lockPointer();
+  if (isTouch) { tryFullscreen(); updateRotateHint(); }
 }
 if (params.has('autoplay')) { $('nameInput').value = params.get('name') || 'Tester'; startGame(); }
 
@@ -976,7 +1067,9 @@ function loop() {
   sun.intensity = day * 1.0; sun.position.set(me.x + 6, CEIL + 8, me.z + 4); sun.target.position.set(me.x, 0, me.z);
   const bloodF = dinfo.blood ? nightF : 0, fogF = dinfo.fog ? day : 0;
   scene.fog.color.copy(DAY_FOG).lerp(FOGGY, fogF).lerp(NIGHT_FOG, nightF).lerp(BLOOD_FOG, bloodF * 0.6); scene.background.copy(scene.fog.color);
-  scene.fog.near = (10 - nightF * 8) * (1 - fogF) + 2 * fogF; scene.fog.far = (70 - nightF * 44) * (1 - fogF) + 18 * fogF;
+  const fs = Q.fogScale || 1;
+  scene.fog.near = ((10 - nightF * 8) * (1 - fogF) + 2 * fogF) * fs;
+  scene.fog.far = ((70 - nightF * 44) * (1 - fogF) + 18 * fogF) * fs;
   if (bloodF) hemi.color.setRGB(1, 0.25, 0.22);
   panelMat.color.setRGB(1 - nightF * 0.92, 1 - nightF * 0.96, 1 - nightF * 0.96);
   const flick = Math.random() < 0.08 ? 0.15 : (Math.sin(now * 0.05) > 0.7 ? 0.5 : 1);
@@ -999,9 +1092,15 @@ function loop() {
   flash.intensity = flashOn ? 40 + nightF * 20 : 0;
   sfx.setNight(nightF);
   $('vignette').style.background = `radial-gradient(ellipse at center,transparent ${55 - nightF * 25}%,rgba(0,0,0,${0.55 + nightF * 0.4}) 100%)`;
-  grainT -= dt; if (grainT <= 0 && settings.quality !== 'low') { drawGrain(); grain.style.opacity = 0.04 + nightF * 0.1; grainT = 0.08; }
+  grainT -= dt; if (grainT <= 0 && Q.grain) { drawGrain(); grain.style.opacity = 0.04 + nightF * 0.1; grainT = 0.08; } else if (!Q.grain) grain.style.opacity = 0;
 
   // ---- camera ----
+  // smooth look (targets set by mouse / touch)
+  {
+    const k = 1 - Math.exp(-dt * (isTouch ? 22 : 28));
+    let dy = tyaw - yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    yaw += dy * k; pitch += (tpitch - pitch) * k;
+  }
   const head = new THREE.Vector3(me.x, me.y + 1.7, me.z);
   let cd = camDist;
   const off = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
@@ -1029,19 +1128,19 @@ function loop() {
     let html = '';
     const tg = target(), tf = targetFurn();
     if (tg) {
-      if (tg.kind === 'item') html = `<b>E</b> ${t('pickUp')} ${esc(tg.name)}`;
+      if (tg.kind === 'item') html = `<b>E</b> — ${t('pickUp')} ${esc(tg.name)}`;
       else {
         const ty = tg.f?.type, mine = tg.id.startsWith('p_');
-        html = mine && (ty === 'door' || ty === 'dooropen') ? `<b>E</b> ${ty === 'dooropen' ? t('closeDoor') : t('open')} · <b>Shift+E</b> ${t('grab')}` : mine && ty === 'chest' ? `<b>E</b> ${t('open')} ${esc(tg.name)} · <b>Shift+E</b> ${t('grab')}` : `<b>E</b> ${t('grab')} ${esc(tg.name)}`;
+        html = mine && (ty === 'door' || ty === 'dooropen') ? `<b>E</b> — ${ty === 'dooropen' ? t('closeDoor') : t('open')} · <b>Shift+E</b> — ${t('grab')}` : mine && ty === 'chest' ? `<b>E</b> — ${t('open')} ${esc(tg.name)} · <b>Shift+E</b> — ${t('grab')}` : `<b>E</b> — ${t('grab')} ${esc(tg.name)}`;
         if (tg.f?.locked) html += ' · ' + t('anchored');
-        if (mine && tg.f?.owner === myName) html += ' · <b>L</b> ' + (tg.f.locked ? t('unanchor') : t('anchor'));
+        if (mine && tg.f?.owner === myName) html += ' · <b>L</b> — ' + (tg.f.locked ? t('unanchor') : t('anchor'));
       }
     }
-    if (tf && !stats.carry && breakable(tf.type)) { const h = fhp.get(tf.id) || { hp: tf.hp ?? furnHp(tf.type), max: furnHp(tf.type) }; html += (html ? ' · ' : '') + `<b>${lang === 'ru' ? 'ЛКМ' : 'LMB'}</b> ${t('hit')}${h.hp < h.max ? ' ' + Math.round(Math.max(0, h.hp) / h.max * 100) + '%' : ''}`; }
-    if (bed && !stats.sleeping && !stats.carry) html += (html ? ' · ' : '') + `<b>Z</b> ${t('sleep')}`;
+    if (tf && !stats.carry && breakable(tf.type)) { const h = fhp.get(tf.id) || { hp: tf.hp ?? furnHp(tf.type), max: furnHp(tf.type) }; html += (html ? ' · ' : '') + `<b>${lang === 'ru' ? 'ЛКМ' : 'LMB'}</b> — ${t('hit')}${h.hp < h.max ? ' ' + Math.round(Math.max(0, h.hp) / h.max * 100) + '%' : ''}`; }
+    if (bed && !stats.sleeping && !stats.carry) html += (html ? ' · ' : '') + `<b>Z</b> — ${t('sleep')}`;
     if (stats.sleeping) html = t('sleeping');
-    if (nearFlag('bench') && !stats.carry) html += (html ? ' · ' : '') + `<b>C</b> ${t('craftHere')}`;
-    if (nearFlag('stove') && !stats.carry) html += (html ? ' · ' : '') + `<b>C</b> ${t('cook')}`;
+    if (nearFlag('bench') && !stats.carry) html += (html ? ' · ' : '') + `<b>C</b> — ${t('craftHere')}`;
+    if (nearFlag('stove') && !stats.carry) html += (html ? ' · ' : '') + `<b>C</b> — ${t('cook')}`;
     pr.innerHTML = html; pr.style.display = html ? 'block' : 'none';
     const hrs = (gameT / CYCLE * 24 + 9) % 24, night = gameT >= DAY;
     const left = Math.ceil(night ? CYCLE - gameT : DAY - gameT), mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
@@ -1064,5 +1163,5 @@ function h0attackFacing() { return locked && myModel && myModel.swing > 0.8; }
 requestAnimationFrame(loop);
 applySettings(); applyStatic();
 // expose for automated tests
-window.__game = { get dinfo() { return dinfo; }, setInfo: (i) => Object.assign(dinfo, i), addWaypoint: () => addWaypoint(), get me() { return me; }, get stats() { return stats; }, get npcs() { return npcs.size; }, get others() { return others.size; }, get chunks() { return chunks.size; }, get night() { return nightF; }, get t() { return gameT; }, setYaw: (y) => (yaw = y), setPitch: (p) => (pitch = p), emit: (...a) => socket.emit(...a), toggleFlash: () => (flashOn = !flashOn), keys };
+window.__game = { get dinfo() { return dinfo; }, setInfo: (i) => Object.assign(dinfo, i), addWaypoint: () => addWaypoint(), get me() { return me; }, get stats() { return stats; }, get npcs() { return npcs.size; }, get others() { return others.size; }, get chunks() { return chunks.size; }, get night() { return nightF; }, get t() { return gameT; }, setYaw: (y) => (yaw = tyaw = y), setPitch: (p) => (pitch = tpitch = p), emit: (...a) => socket.emit(...a), toggleFlash: () => (flashOn = !flashOn), keys };
 Object.assign(window.__game, { openInv: (tab) => { if (tab) invTab = tab; openInv(); }, closeInv: () => closeInv(), targetFurn: () => targetFurn()?.id, attack: () => primary(), applyLang: (l) => applyLang(l), fhp: () => [...fhp.entries()] });

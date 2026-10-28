@@ -2,7 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>3008 Survival — Бесконечный магазин</title>
 <link rel="stylesheet" href="/style.css">
 <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }</script>
@@ -62,9 +64,23 @@
     <p class="ver" id="ver"></p>
   </div>
 </div>
+<div id="keysHint" class="hidden"></div>
+<div id="rotateHint" class="hidden"><div><b data-t="rotatePhone"></b><p data-t="rotatePhoneH"></p></div></div>
 <div id="touch" class="hidden">
-  <div id="joy"><i></i></div>
-  <div id="tbtns"><button data-k="jump">↑</button><button data-k="attack" data-ic="hammer"></button><button data-k="use">E</button><button data-k="place" data-ic="box"></button><button data-k="eat" data-ic="food"></button><button data-k="sprint" data-ic="run"></button><button data-k="sleep" data-ic="moon"></button><button data-k="craft" data-ic="bag"></button></div>
+  <div id="joyZone"><div id="joy" class="hidden"><i></i></div></div>
+  <div id="lookZone"></div>
+  <div id="tbtns">
+    <button data-k="attack" data-ic="hammer" class="tb big"></button>
+    <button data-k="use" class="tb">E</button>
+    <button data-k="jump" class="tb">↑</button>
+    <button data-k="sprint" data-ic="run" class="tb"></button>
+    <button data-k="place" data-ic="box" class="tb"></button>
+    <button data-k="eat" data-ic="food" class="tb"></button>
+    <button data-k="inv" data-ic="bag" class="tb"></button>
+    <button data-k="craft" data-ic="craft" class="tb"></button>
+    <button data-k="chat" data-ic="chat" class="tb sm"></button>
+    <button data-k="menu" data-ic="menu" class="tb sm"></button>
+  </div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script type="module" src="/main.js"></script>

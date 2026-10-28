@@ -1,8 +1,14 @@
-# 3008 Survival v2.3.0
+# 3008 Survival v2.6.0
 
 An original multiplayer survival game you play in the browser. You are trapped in an endless, procedurally generated furniture store. By day the faceless employees ignore you. When the store closes they hunt in groups, so scavenge, craft and build a fort before night falls. Everything in the game (models, textures, sounds) is original and made in code.
 
 **Play:** https://three008-survival.onrender.com
+
+## What's new in 2.6: phone + discoverable controls
+
+- **PC:** Escape no longer races with pointer-lock (pause stayed closed — felt like half the keys were missing). F1 / `?` toggles a compact controls hint; full list lives in pause → Controls. Camera sensitivity + smooth look. Clear prompts: `E — взять`, `ЛКМ — ломать`.
+- **Phone:** Touch detection, left virtual joystick, right look-drag, buttons for jump / sprint / attack / interact / place / eat / inventory / craft / chat / menu. Tappable hotbar. Landscape preferred with a portrait rotate hint, fullscreen, safe-area insets, no page zoom/scroll.
+- **Perf:** Auto/low/med/high graphics (pixel ratio, shadows, fog/draw distance). Model detail kept at medium/high.
 
 ## What's new in 2.5: minimalist interface
 - New design system: one neutral font, near-white text, translucent blurred dark panels, a single accent colour, thin lines, no emoji (monochrome inline SVG icons in `public/js/icons.js`).

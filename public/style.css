@@ -1,7 +1,7 @@
 /* 3008 Survival — v2.5 minimal UI. One font, near-white text, dark translucent glass, one accent. */
 :root{--fg:#f2f2f0;--dim:rgba(242,242,240,.55);--faint:rgba(242,242,240,.28);--line:rgba(255,255,255,.1);--glass:rgba(16,16,20,.52);--glass2:rgba(16,16,20,.82);--acc:#e8c872;--bad:#ef6b5f;--r:10px;--blur:blur(14px) saturate(1.2)}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-weight:400;color:var(--fg);user-select:none;-webkit-user-select:none;touch-action:none;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+html,body{margin:0;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none;background:#000;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-weight:400;color:var(--fg);user-select:none;-webkit-user-select:none;touch-action:none;-webkit-touch-callout:none;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
 #game canvas{display:block}
 .hidden{display:none!important}
 svg.ic{display:inline-block;vertical-align:middle;flex:none}
@@ -161,10 +161,31 @@ table{font-size:12px;border-collapse:collapse;width:100%}td,th{padding:5px 10px 
 /* ---------- touch ---------- */
 .dmgnum{position:fixed;pointer-events:none;font-weight:600;font-size:15px;color:var(--fg);text-shadow:0 1px 3px rgba(0,0,0,.7);z-index:4;transition:transform .8s ease-out,opacity .8s}
 #touch{position:fixed;inset:0;z-index:5;pointer-events:none}
-#joy{position:absolute;left:30px;bottom:110px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);pointer-events:auto}
-#joy i{position:absolute;left:37px;top:37px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.25)}
-#tbtns{position:absolute;right:16px;bottom:96px;display:grid;grid-template-columns:repeat(4,52px);gap:10px;pointer-events:auto}
-#tbtns button{width:52px;height:52px;border-radius:50%;background:rgba(16,16,20,.4);border:1px solid rgba(255,255,255,.18);font-size:16px;padding:0}
+#joyZone{position:absolute;left:0;top:0;width:46%;height:100%;pointer-events:auto;touch-action:none}
+#lookZone{position:absolute;right:0;top:0;width:54%;height:100%;pointer-events:auto;touch-action:none}
+#joy{position:absolute;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.22);pointer-events:none;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#joy i{position:absolute;left:32px;top:32px;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.32);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#tbtns{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(88px,calc(env(safe-area-inset-bottom) + 72px));display:grid;grid-template-columns:repeat(3,56px);gap:10px;pointer-events:auto;z-index:6}
+#tbtns button.tb{width:56px;height:56px;border-radius:50%;background:rgba(16,16,20,.45);border:1px solid rgba(255,255,255,.2);font-size:15px;padding:0;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--fg)}
+#tbtns button.tb.big{width:64px;height:64px;background:rgba(232,200,114,.18);border-color:rgba(232,200,114,.45)}
+#tbtns button.tb.sm{width:44px;height:44px;opacity:.85}
+#tbtns button.tb.on{background:rgba(232,200,114,.35);border-color:var(--acc);color:var(--acc)}
+#tbtns button.tb svg{width:22px;height:22px;pointer-events:none}
+#tbtns button.tb.big svg{width:26px;height:26px}
+html.touch #hud{z-index:6}
+html.touch #hotbar{pointer-events:auto;bottom:max(12px,env(safe-area-inset-bottom))}
+html.touch #menuBtn,html.touch #mapBtn{pointer-events:auto}
+html.touch #crosshair{opacity:.35}
+body.panel-open #touch{visibility:hidden;pointer-events:none}
+body.panel-open #joyZone,body.panel-open #lookZone{pointer-events:none}
+html.touch #joyZone{bottom:100px;height:auto}
+html.touch #lookZone{bottom:100px;height:auto}
+#keysHint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(520px,92vw);max-height:80vh;overflow:auto;padding:18px 22px;border-radius:14px;background:var(--glass2);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.45);font-size:13px;line-height:1.45;pointer-events:auto}
+#keysHint table{width:100%;border-collapse:collapse}#keysHint td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+#keysHint td:first-child{width:92px;color:var(--acc);font-weight:500;white-space:nowrap}#keysHint p{margin:12px 0 0;color:var(--dim);font-size:12px}
+#rotateHint{position:fixed;inset:0;z-index:40;background:rgba(10,10,12,.88);display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;pointer-events:auto}
+#rotateHint div{max-width:280px}#rotateHint b{display:block;font-size:20px;font-weight:500;margin-bottom:8px}#rotateHint p{margin:0;color:var(--dim);font-size:14px;line-height:1.5}
+@media (orientation:landscape){#rotateHint{display:none!important}}
 
 /* ---------- avatar editor ---------- */
 .panel.wide{width:min(980px,96vw);max-height:92vh;padding:22px 26px}
@@ -229,8 +250,35 @@ table{font-size:12px;border-collapse:collapse;width:100%}td,th{padding:5px 10px 
 .streakRow{padding:2px 2px 10px;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}.streakRow svg{color:var(--acc)}.streakRow b{color:var(--fg)}
 #achClose,#helpClose{margin-top:16px}
 
-@media (max-width:800px){
-  #stats{width:140px;bottom:14px;left:14px}#hotbar{bottom:10px}.slot{width:36px;height:36px}.slot svg{width:18px;height:18px}
-  #chat{width:220px;left:56px}#feed{display:none}#tip{display:none}#plist{display:none}#mapWrap{transform:scale(.75)}
-  #invBody{flex-direction:column}.igrid{grid-template-columns:repeat(8,36px)}.islot{width:36px;height:36px}.edBody{flex-direction:column}.edPrev{min-height:240px}
+@media (max-width:900px),(pointer:coarse){
+  #stats{width:min(160px,42vw);bottom:max(14px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left))}
+  #hotbar{bottom:max(10px,env(safe-area-inset-bottom));padding:3px;gap:3px}
+  .slot{width:40px;height:40px}.slot svg{width:18px;height:18px}
+  #chat{width:min(240px,55vw);left:max(52px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top))}
+  #feed{display:none}#tip{display:none}#plist{display:none}
+  #mapWrap{right:max(8px,env(safe-area-inset-right));bottom:max(70px,env(safe-area-inset-bottom));transform:scale(.72);transform-origin:bottom right}
+  #mapBtn{right:max(10px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom))}
+  #menuBtn{left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top))}
+  #topbar{top:max(10px,env(safe-area-inset-top))}
+  #inv .box{width:min(100vw,720px);max-height:92vh;padding:16px 14px;border-radius:12px 12px 0 0;margin-top:auto}
+  #inv{align-items:flex-end}
+  #invBody{flex-direction:column;gap:16px}
+  .igrid{grid-template-columns:repeat(8,minmax(36px,1fr));gap:3px;width:100%}
+  .islot{width:auto;aspect-ratio:1;height:auto;min-height:36px}
+  .rlist{max-height:38vh}
+  .recipe{padding:8px 2px;gap:8px}.recipe button{padding:8px 12px;min-height:40px}
+  .panel{width:min(96vw,420px);max-height:90vh;padding:18px 16px;overflow:auto}
+  .panel.wide,#avatarEd{width:min(100vw,980px);max-height:96vh;padding:14px}
+  .edBody{flex-direction:column;gap:12px;overflow:auto}.edPrev{min-height:200px;flex:none;height:42vw;max-height:260px}
+  .edOpts{max-height:32vh;grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .menuBox{width:min(92vw,380px);padding:22px 18px}
+  .menuRow{flex-wrap:wrap}.menuRow button{flex:1 1 30%;min-width:90px}
+  html.touch #prompt{font-size:13px;padding:6px 12px}
+  html.touch #carryInfo{font-size:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 58px)}
+}
+@media (max-width:900px) and (orientation:landscape){
+  #tbtns{grid-template-columns:repeat(5,48px);gap:8px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 48px))}
+  #tbtns button.tb{width:48px;height:48px}#tbtns button.tb.big{width:56px;height:56px}
+  .slot{width:34px;height:34px}#hotbar{bottom:max(6px,env(safe-area-inset-bottom))}
+  #stats{bottom:max(8px,env(safe-area-inset-bottom))}
 }
